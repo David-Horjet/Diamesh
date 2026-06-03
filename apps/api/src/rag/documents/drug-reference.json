@@ -1,0 +1,89 @@
+[
+  {
+    "name": "timolol",
+    "aliases": ["timoptic", "betimol", "istalol"],
+    "ocularSideEffects": ["burning on instillation", "dry eye", "reduced corneal sensitivity", "blurred vision"],
+    "interactions": [
+      { "drug": "oral beta-blockers", "severity": "severe", "effect": "Additive systemic beta-blockade, bradycardia, bronchospasm" },
+      { "drug": "calcium channel blockers", "severity": "moderate", "effect": "Risk of AV block and left ventricular failure" },
+      { "drug": "digoxin", "severity": "moderate", "effect": "Additive slowing of AV node conduction" }
+    ]
+  },
+  {
+    "name": "latanoprost",
+    "aliases": ["xalatan"],
+    "ocularSideEffects": ["iris pigmentation change", "eyelash growth", "periorbital fat atrophy", "conjunctival hyperemia"],
+    "interactions": [
+      { "drug": "thimerosal-containing drops", "severity": "mild", "effect": "Precipitation if used concurrently — separate by 5 minutes" },
+      { "drug": "NSAIDs", "severity": "mild", "effect": "May reduce IOP-lowering efficacy" }
+    ]
+  },
+  {
+    "name": "dorzolamide",
+    "aliases": ["trusopt"],
+    "ocularSideEffects": ["bitter taste", "stinging", "superficial punctate keratitis", "blurred vision"],
+    "interactions": [
+      { "drug": "oral carbonic anhydrase inhibitors", "severity": "moderate", "effect": "Additive systemic effects, metabolic acidosis risk" },
+      { "drug": "aspirin (high dose)", "severity": "mild", "effect": "Potential toxicity accumulation" }
+    ]
+  },
+  {
+    "name": "prednisolone acetate",
+    "aliases": ["pred forte", "pred mild"],
+    "ocularSideEffects": ["posterior subcapsular cataract", "elevated IOP", "delayed corneal healing", "risk of secondary infection"],
+    "interactions": [
+      { "drug": "topical NSAIDs", "severity": "mild", "effect": "Reduced anti-inflammatory efficacy of both agents" }
+    ]
+  },
+  {
+    "name": "atropine",
+    "aliases": ["isopto atropine"],
+    "ocularSideEffects": ["prolonged mydriasis", "photophobia", "cycloplegia", "risk of angle closure"],
+    "interactions": [
+      { "drug": "other anticholinergics", "severity": "moderate", "effect": "Additive anticholinergic effects systemically" }
+    ]
+  },
+  {
+    "name": "fluorescein",
+    "aliases": ["fluorets", "fluor-i-strip"],
+    "ocularSideEffects": ["temporary staining", "mild stinging"],
+    "interactions": [
+      { "drug": "soft contact lenses", "severity": "mild", "effect": "Staining of soft lens material — remove lenses before use" }
+    ]
+  },
+  {
+    "name": "brimonidine",
+    "aliases": ["alphagan", "alphagan p"],
+    "ocularSideEffects": ["allergic follicular conjunctivitis (up to 15%)", "dry mouth", "drowsiness", "lid retraction"],
+    "interactions": [
+      { "drug": "MAO inhibitors", "severity": "severe", "effect": "Contraindicated — hypertensive crisis risk" },
+      { "drug": "CNS depressants", "severity": "moderate", "effect": "Additive CNS depression" },
+      { "drug": "tricyclic antidepressants", "severity": "moderate", "effect": "May reduce hypotensive effect" }
+    ]
+  },
+  {
+    "name": "ranibizumab",
+    "aliases": ["lucentis"],
+    "ocularSideEffects": ["injection site pain", "vitreous floaters", "subconjunctival hemorrhage", "increased IOP post-injection"],
+    "interactions": [
+      { "drug": "bevacizumab", "severity": "mild", "effect": "Combined VEGF blockade — not typically co-administered" }
+    ]
+  },
+  {
+    "name": "bevacizumab",
+    "aliases": ["avastin"],
+    "ocularSideEffects": ["endophthalmitis risk (injection)", "retinal detachment risk", "vitreous hemorrhage"],
+    "interactions": [
+      { "drug": "systemic anticoagulants", "severity": "moderate", "effect": "Increased risk of vitreous hemorrhage" }
+    ]
+  },
+  {
+    "name": "hydroxychloroquine",
+    "aliases": ["plaquenil"],
+    "ocularSideEffects": ["maculopathy (bull's eye)", "visual field defects", "corneal deposits"],
+    "interactions": [
+      { "drug": "tamoxifen", "severity": "severe", "effect": "Synergistic retinal toxicity — avoid combination" },
+      { "drug": "digoxin", "severity": "moderate", "effect": "Increased plasma digoxin levels" }
+    ]
+  }
+]
