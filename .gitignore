@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.next/
+.turbo/
+*.log
+.env
+.env.local
+.env.*.local
+diamesh.db
+diamesh.db-shm
+diamesh.db-wal
+logs/
+models/
+.qvac/
+*.gguf
+*.onnx
+coverage/
