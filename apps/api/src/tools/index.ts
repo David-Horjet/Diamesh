@@ -2,27 +2,28 @@ import { executeIcd10Tool, icd10ToolDefinition } from "./icd10.tool.js";
 import { executeDrugInteractionTool, drugInteractionToolDefinition } from "./drug-interaction.tool.js";
 import { executeRagSearchTool, ragSearchToolDefinition } from "./rag-search.tool.js";
 import { executeRiskCalculatorTool, riskCalculatorToolDefinition } from "./risk-calculator.tool.js";
+import type { PromptTool } from "./prompt-tools.js";
 import type { ToolCallRecord } from "@diamesh/shared";
 
-export const ALL_TOOLS = [
+export const ALL_TOOLS: PromptTool[] = [
   icd10ToolDefinition,
   drugInteractionToolDefinition,
   ragSearchToolDefinition,
   riskCalculatorToolDefinition,
 ];
 
-export const REASONING_TOOLS = [
+export const REASONING_TOOLS: PromptTool[] = [
   icd10ToolDefinition,
   ragSearchToolDefinition,
   riskCalculatorToolDefinition,
 ];
 
-export const DIFFERENTIAL_TOOLS = [
+export const DIFFERENTIAL_TOOLS: PromptTool[] = [
   icd10ToolDefinition,
   riskCalculatorToolDefinition,
 ];
 
-export const INTAKE_TOOLS = [
+export const INTAKE_TOOLS: PromptTool[] = [
   ragSearchToolDefinition,
 ];
 

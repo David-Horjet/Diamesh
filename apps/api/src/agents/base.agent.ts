@@ -3,7 +3,11 @@ import { v4 as uuid } from "uuid";
 import { insertAgentRun } from "../db/queries.js";
 import { auditInference } from "../logging/audit.js";
 import { dispatchTool } from "../tools/index.js";
+import { buildToolInstructions, parseToolCall, stripToolCallJson, type PromptTool } from "../tools/prompt-tools.js";
 import type { AgentName, AgentProgressEvent, AgentMetrics, ToolCallRecord } from "@diamesh/shared";
+
+// Max tool-call rounds before forcing a final answer (prevents infinite loops)
+const MAX_TOOL_ROUNDS = 3;
 
 export interface AgentRunOptions {
   caseId: string;
@@ -11,7 +15,7 @@ export interface AgentRunOptions {
   userPrompt: string;
   modelId: string;
   modelName: string;
-  tools?: object[];
+  tools?: PromptTool[];
   captureThinking?: boolean;
   inferenceMode?: "local" | "delegated";
   onEvent?: ((event: AgentProgressEvent) => void) | undefined;
@@ -42,16 +46,17 @@ export abstract class BaseAgent {
 
     onEvent?.({ type: "agent_start", agentName: this.name });
 
+    // Inject tool instructions into the system prompt (prompt-based tool calling —
+    // works on any GGUF model, unlike the SDK's native `tools` param which requires
+    // a tool-aware chat template that MedPsy's GGUF does not provide).
+    const toolInstructions = tools.length > 0 ? buildToolInstructions(tools) : "";
+
     // Truncate prompts to stay safely within the 4096 token ctx window.
     // Rough estimate: 1 token ≈ 4 chars. Reserve 1024 tokens for output.
     const MAX_PROMPT_CHARS = (4096 - 1024) * 4;
-    const safeSystem = systemPrompt.slice(0, Math.floor(MAX_PROMPT_CHARS * 0.35));
-    const safeUser = userPrompt.slice(0, Math.floor(MAX_PROMPT_CHARS * 0.65));
-
-    const history = [
-      { role: "system" as const, content: safeSystem },
-      { role: "user" as const, content: safeUser },
-    ];
+    const fullSystem = systemPrompt + toolInstructions;
+    const safeSystem = fullSystem.slice(0, Math.floor(MAX_PROMPT_CHARS * 0.45));
+    const safeUser = userPrompt.slice(0, Math.floor(MAX_PROMPT_CHARS * 0.55));
 
     const startTime = Date.now();
     let firstTokenTime: number | null = null;
@@ -61,20 +66,22 @@ export abstract class BaseAgent {
     let tokensIn = 0;
     let tokensOut = 0;
 
-    // Agentic tool-calling loop
-    let currentHistory = history;
+    // Conversation history grows as tools are called
+    let currentHistory: { role: "system" | "user" | "assistant"; content: string }[] = [
+      { role: "system", content: safeSystem },
+      { role: "user", content: safeUser },
+    ];
 
+    let round = 0;
     while (true) {
       const run = completion({
         modelId,
         history: currentHistory,
         stream: true,
         captureThinking,
-        ...(tools.length > 0 ? { tools } : {}),
         kvCache: false,
       });
 
-      let pendingToolCall: { name: string; args: string } | null = null;
       let loopText = "";
       let loopThinking = "";
 
@@ -91,10 +98,6 @@ export abstract class BaseAgent {
             onEvent?.({ type: "agent_thinking", agentName: this.name, thinking: event.delta ?? "" });
             break;
 
-          case "toolCall":
-            pendingToolCall = { name: event.call?.name ?? "", args: JSON.stringify(event.call?.arguments ?? {}) };
-            break;
-
           case "usage":
             tokensIn += event.inputTokens ?? 0;
             tokensOut += event.outputTokens ?? 0;
@@ -102,36 +105,34 @@ export abstract class BaseAgent {
         }
       }
 
-      text += loopText;
       thinkingTrace += loopThinking;
 
-      // If a tool was called, dispatch it and continue the loop
-      if (pendingToolCall) {
-        const toolStart = Date.now();
-        let parsedArgs: Record<string, unknown> = {};
-        try { parsedArgs = JSON.parse(pendingToolCall.args); } catch { /* */ }
+      // Check if the model emitted a tool call (and we still have rounds left)
+      const toolCall = tools.length > 0 && round < MAX_TOOL_ROUNDS ? parseToolCall(loopText) : null;
 
-        const { result, durationMs } = await dispatchTool(pendingToolCall.name, parsedArgs);
+      if (toolCall) {
+        const { result, durationMs } = await dispatchTool(toolCall.name, toolCall.arguments);
         const record: ToolCallRecord = {
-          name: pendingToolCall.name,
-          input: parsedArgs,
+          name: toolCall.name,
+          input: toolCall.arguments,
           output: result,
           durationMs,
         };
         toolCallsMade.push(record);
         onEvent?.({ type: "agent_tool_call", agentName: this.name, toolCall: record });
 
-        // Append tool call + result to history for next loop
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // Feed the tool result back and ask the model to continue
         currentHistory = [
           ...currentHistory,
-          { role: "assistant", content: loopText || `Calling tool: ${pendingToolCall.name}` } as any,
-          { role: "tool", content: result, name: pendingToolCall.name } as any,
-        ] as typeof currentHistory;
+          { role: "assistant", content: loopText },
+          { role: "user", content: `Tool "${toolCall.name}" returned:\n${result}\n\nContinue your analysis using this result.` },
+        ];
+        round++;
         continue;
       }
 
-      // No tool call — done
+      // No tool call — this is the final answer
+      text += stripToolCallJson(loopText);
       break;
     }
 

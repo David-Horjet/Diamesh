@@ -1,6 +1,5 @@
 import { BaseAgent } from "./base.agent.js";
 import { getMedPsy1B } from "../models/pool.js";
-import { INTAKE_TOOLS } from "../tools/index.js";
 import type { AgentName, AgentProgressEvent, ClinicalCase } from "@diamesh/shared";
 
 export interface IntakeResult {
@@ -25,7 +24,8 @@ export class IntakeAgent extends BaseAgent {
       caseId: clinicalCase.id,
       modelId,
       modelName: "MedPsy-1.7B",
-      tools: INTAKE_TOOLS,
+      // No tools — intake just produces structured JSON. RAG retrieval is the
+      // knowledge agent's job. Keeping this tool-free guarantees clean JSON output.
       captureThinking: false,
       onEvent,
       systemPrompt: `You are a clinical intake specialist for an optometry practice. Your role is to:

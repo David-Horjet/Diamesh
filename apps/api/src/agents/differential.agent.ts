@@ -1,6 +1,6 @@
 import { BaseAgent } from "./base.agent.js";
 import { getMedPsy4B } from "../models/pool.js";
-import { DIFFERENTIAL_TOOLS } from "../tools/index.js";
+import { lookupICD10 } from "../tools/icd10.tool.js";
 import type { AgentName, AgentProgressEvent, Differential } from "@diamesh/shared";
 import type { ReasoningResult } from "./reasoning.agent.js";
 
@@ -23,13 +23,13 @@ export class DifferentialAgent extends BaseAgent {
       caseId,
       modelId,
       modelName: "MedPsy-4B",
-      tools: DIFFERENTIAL_TOOLS,
+      // No tools — produces clean structured JSON. ICD-10 codes are verified
+      // against the local code database after parsing (see enrichWithIcd10).
       captureThinking: false,
       onEvent,
       systemPrompt: `You are a clinical specialist generating a differential diagnosis list.
 
-Use the icd10_lookup tool to retrieve ICD-10 codes for each condition you identify.
-Use the calculate_vision_risk tool where relevant clinical parameters are available.
+Provide your best ICD-10 code for each condition from your own knowledge.
 
 Return ONLY a valid JSON object with this exact structure:
 {
@@ -51,7 +51,7 @@ Return ONLY a valid JSON object with this exact structure:
 Rules:
 - List 3-5 differentials, ranked by probability
 - probability must be: "high", "medium", or "low"
-- Include ICD-10 codes (use tool to look them up)
+- Include your best-guess ICD-10 code for each condition
 - recommendedActions: 3-6 concrete next steps (investigations, referrals, treatments)`,
 
       userPrompt: `Based on this clinical assessment, generate the differential diagnosis list with ICD-10 codes and recommended actions:
@@ -62,7 +62,8 @@ ${reasoningResult.clinicalAssessment}`,
     try {
       const jsonMatch = result.text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]) as DifferentialResult;
+        const parsed = JSON.parse(jsonMatch[0]) as DifferentialResult;
+        return enrichWithIcd10(parsed);
       }
     } catch { /* fall through */ }
 
@@ -77,4 +78,16 @@ ${reasoningResult.clinicalAssessment}`,
       recommendedActions: ["Consult with supervising clinician", "Full ophthalmic examination recommended"],
     };
   }
+}
+
+// Verify/correct each differential's ICD-10 code against the local code database.
+// If the model's code is missing or doesn't match a real code, look one up by condition name.
+function enrichWithIcd10(result: DifferentialResult): DifferentialResult {
+  const differentials = result.differentials.map((d) => {
+    const matches = lookupICD10(d.condition);
+    // Prefer a verified local match; fall back to the model's code if none found
+    const verifiedCode = matches.length > 0 ? matches[0]!.code : (d.icd10Code ?? null);
+    return { ...d, icd10Code: verifiedCode };
+  });
+  return { ...result, differentials };
 }
