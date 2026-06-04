@@ -9,7 +9,8 @@
     "start": "node --env-file=.env dist/index.js",
     "type-check": "tsc --noEmit",
     "db:migrate": "tsx --env-file=.env src/db/migrate.ts",
-    "rag:ingest": "tsx --env-file=.env src/rag/ingest.ts"
+    "rag:ingest": "tsx --env-file=.env src/rag/ingest.ts",
+    "db:seed": "tsx --env-file=.env src/db/seed.ts"
   },
   "dependencies": {
     "@diamesh/shared": "*",
