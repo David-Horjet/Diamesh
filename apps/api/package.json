@@ -10,7 +10,8 @@
     "type-check": "tsc --noEmit",
     "db:migrate": "tsx --env-file=.env src/db/migrate.ts",
     "rag:ingest": "tsx --env-file=.env src/rag/ingest.ts",
-    "db:seed": "tsx --env-file=.env src/db/seed.ts"
+    "db:seed": "tsx --env-file=.env src/db/seed.ts",
+    "models:download": "bash scripts/download-models.sh"
   },
   "dependencies": {
     "@diamesh/shared": "*",

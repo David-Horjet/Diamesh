@@ -39,10 +39,10 @@ export async function executeRagSearchTool(args: { query: string; topK?: number 
 
     return JSON.stringify({
       found: true,
-      results: results.map((r: { content: string; score: number; source: string }) => ({
-        content: r.content,
-        score: r.score,
-        source: r.source,
+      results: results.map((r: { id?: string; content?: string; score?: number }) => ({
+        content: r.content ?? "",
+        score: r.score ?? 0,
+        source: r.id ?? "unknown",
       })),
     });
   } catch {

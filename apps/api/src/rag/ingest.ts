@@ -21,34 +21,33 @@ async function run(): Promise<void> {
   const icd10Raw = readFileSync(path.join(DOCS_DIR, "icd10-eye-codes.json"), "utf-8");
   const icd10 = JSON.parse(icd10Raw) as { code: string; description: string; keywords: string[] }[];
 
-  // Ingest clinical guidelines (chunked by section)
+  // Ingest clinical guidelines — SDK chunks automatically
   await ragIngest({
     modelId,
-    documents: [
-      { id: "ophthalmology-guidelines", content: guidelines },
-    ],
+    documents: [guidelines],
     chunk: true,
-    onProgress: (p: { percentage: number }) => {
-      if (p.percentage % 20 === 0) console.log(`[rag] Guidelines ingest: ${p.percentage}%`);
+    onProgress: (stage: string, current: number, total: number) => {
+      console.log(`[rag] Guidelines ${stage}: ${current}/${total}`);
     },
   });
+  console.log("[rag] Guidelines ingested.");
 
-  // Ingest ICD-10 codes as individual documents for precise retrieval
-  const icd10Docs = icd10.map((entry) => ({
-    id: `icd10-${entry.code}`,
-    content: `ICD-10 Code ${entry.code}: ${entry.description}. Keywords: ${entry.keywords.join(", ")}`,
-  }));
+  // Ingest ICD-10 entries as individual strings
+  const icd10Strings = icd10.map(
+    (e) => `ICD-10 ${e.code}: ${e.description}. Keywords: ${e.keywords.join(", ")}`
+  );
 
   await ragIngest({
     modelId,
-    documents: icd10Docs,
+    documents: icd10Strings,
     chunk: false,
-    onProgress: (p: { percentage: number }) => {
-      if (p.percentage % 25 === 0) console.log(`[rag] ICD-10 ingest: ${p.percentage}%`);
+    onProgress: (stage: string, current: number, total: number) => {
+      console.log(`[rag] ICD-10 ${stage}: ${current}/${total}`);
     },
   });
+  console.log("[rag] ICD-10 codes ingested.");
 
-  auditLog({ event: "rag_ingest_complete", details: { documentsIngested: 1 + icd10Docs.length } });
+  auditLog({ event: "rag_ingest_complete", details: { documentsIngested: 1 + icd10Strings.length } });
   console.log("[rag] Knowledge base ingest complete.");
 }
 

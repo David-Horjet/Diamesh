@@ -7,10 +7,7 @@ export interface RAGResult {
   source: string;
 }
 
-export async function searchKnowledgeBase(
-  query: string,
-  topK = 3
-): Promise<RAGResult[]> {
+export async function searchKnowledgeBase(query: string, topK = 3): Promise<RAGResult[]> {
   try {
     const modelId = await getEmbeddingsModel();
     const results = await ragSearch({
@@ -21,10 +18,10 @@ export async function searchKnowledgeBase(
 
     if (!results || results.length === 0) return [];
 
-    return results.map((r: { document?: { content?: string; id?: string }; score: number }) => ({
-      content: r.document?.content ?? "",
-      score: r.score,
-      source: r.document?.id ?? "unknown",
+    return results.map((r: { id?: string; content?: string; score?: number }) => ({
+      content: r.content ?? "",
+      score: r.score ?? 0,
+      source: r.id ?? "unknown",
     }));
   } catch {
     return [];

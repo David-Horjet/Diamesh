@@ -1,4 +1,4 @@
-import { loadModel, unloadModel } from "@qvac/sdk";
+import { loadModel } from "@qvac/sdk";
 import { MODELS } from "../models/constants.js";
 import { auditLog } from "../logging/audit.js";
 import type { P2PStatus } from "@diamesh/shared";
@@ -47,7 +47,7 @@ export async function loadDelegatedModel(
     try {
       const modelId = await loadModel({
         modelSrc,
-        modelType: "llm",
+        modelType: "llamacpp-completion",
         ...(modelConfig ? { modelConfig } : {}),
         delegate: {
           providerPublicKey: state.providerPublicKey,
@@ -74,7 +74,7 @@ export async function loadDelegatedModel(
 
   const modelId = await loadModel({
     modelSrc,
-    modelType: "llm",
+    modelType: "llamacpp-completion",
     ...(modelConfig ? { modelConfig } : {}),
   });
 
