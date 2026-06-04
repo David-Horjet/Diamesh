@@ -42,9 +42,15 @@ export abstract class BaseAgent {
 
     onEvent?.({ type: "agent_start", agentName: this.name });
 
+    // Truncate prompts to stay safely within the 4096 token ctx window.
+    // Rough estimate: 1 token ≈ 4 chars. Reserve 1024 tokens for output.
+    const MAX_PROMPT_CHARS = (4096 - 1024) * 4;
+    const safeSystem = systemPrompt.slice(0, Math.floor(MAX_PROMPT_CHARS * 0.35));
+    const safeUser = userPrompt.slice(0, Math.floor(MAX_PROMPT_CHARS * 0.65));
+
     const history = [
-      { role: "system" as const, content: systemPrompt },
-      { role: "user" as const, content: userPrompt },
+      { role: "system" as const, content: safeSystem },
+      { role: "user" as const, content: safeUser },
     ];
 
     const startTime = Date.now();

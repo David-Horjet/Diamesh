@@ -29,9 +29,15 @@ export default function CasePage() {
         if (c.status === "completed") {
           return getReport(id).then((r) => { setReport(r); setActiveTab("report"); });
         }
+        // Auto-start analysis for brand new cases
+        if (c.status === "pending") {
+          setTimeout(() => { void stream.start(); }, 300);
+        }
       })
       .catch(() => { /* */ })
       .finally(() => setLoading(false));
+  // stream.start is stable — intentionally exclude from deps to avoid loop
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   useEffect(() => {

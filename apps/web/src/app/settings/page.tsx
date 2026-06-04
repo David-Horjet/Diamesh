@@ -1,8 +1,33 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Sidebar from "@/components/Sidebar";
 import { getP2PStatus, startProvider, stopProvider, connectPeer, disconnectPeer, getAuditLogs } from "@/lib/api";
 import type { P2PStatus, AuditLogEntry } from "@diamesh/shared";
+
+const EVENT_COLORS: Record<string, string> = {
+  server_start: "text-slate-400",
+  server_ready: "text-green-400",
+  server_error: "text-red-400",
+  model_load_start: "text-yellow-400",
+  model_load_complete: "text-green-400",
+  model_unload: "text-slate-500",
+  model_download_progress: "text-slate-500",
+  pipeline_start: "text-brand-400",
+  pipeline_complete: "text-green-400",
+  pipeline_error: "text-red-400",
+  agent_inference_complete: "text-brand-300",
+  vision_inference_complete: "text-purple-400",
+  rag_ingest_complete: "text-teal-400",
+  p2p_provider_started: "text-orange-400",
+  p2p_provider_stopped: "text-slate-500",
+  p2p_peer_configured: "text-orange-300",
+  p2p_inference_delegated: "text-orange-400",
+  p2p_delegation_fallback: "text-yellow-500",
+};
+
+function eventColor(event: string): string {
+  return EVENT_COLORS[event] ?? "text-slate-400";
+}
 
 export default function SettingsPage() {
   const [p2pStatus, setP2PStatus] = useState<P2PStatus | null>(null);
@@ -10,33 +35,38 @@ export default function SettingsPage() {
   const [consumerKey, setConsumerKey] = useState("");
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
-  const [showLogs, setShowLogs] = useState(false);
+  const [logsLoading, setLogsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [filterEvent, setFilterEvent] = useState("");
+
+  const refreshLogs = useCallback(async () => {
+    setLogsLoading(true);
+    try {
+      const l = await getAuditLogs();
+      setLogs(l);
+    } catch { /* */ }
+    finally { setLogsLoading(false); }
+  }, []);
 
   useEffect(() => {
     getP2PStatus().then(setP2PStatus).catch(() => { /* */ });
-  }, []);
+    void refreshLogs();
+  }, [refreshLogs]);
 
   async function handleStartProvider() {
     setLoading(true);
     try {
       await startProvider(consumerKey || undefined);
-      const s = await getP2PStatus();
-      setP2PStatus(s);
-    } finally {
-      setLoading(false);
-    }
+      setP2PStatus(await getP2PStatus());
+    } finally { setLoading(false); }
   }
 
   async function handleStopProvider() {
     setLoading(true);
     try {
       await stopProvider();
-      const s = await getP2PStatus();
-      setP2PStatus(s);
-    } finally {
-      setLoading(false);
-    }
+      setP2PStatus(await getP2PStatus());
+    } finally { setLoading(false); }
   }
 
   async function handleConnect() {
@@ -44,28 +74,16 @@ export default function SettingsPage() {
     setLoading(true);
     try {
       await connectPeer(peerKey.trim());
-      const s = await getP2PStatus();
-      setP2PStatus(s);
-    } finally {
-      setLoading(false);
-    }
+      setP2PStatus(await getP2PStatus());
+    } finally { setLoading(false); }
   }
 
   async function handleDisconnect() {
     setLoading(true);
     try {
       await disconnectPeer();
-      const s = await getP2PStatus();
-      setP2PStatus(s);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleLoadLogs() {
-    const l = await getAuditLogs();
-    setLogs(l);
-    setShowLogs(true);
+      setP2PStatus(await getP2PStatus());
+    } finally { setLoading(false); }
   }
 
   function copyKey(key: string) {
@@ -77,6 +95,19 @@ export default function SettingsPage() {
   const isProvider = p2pStatus?.mode === "provider";
   const isConsumer = p2pStatus?.mode === "consumer";
 
+  const filteredLogs = filterEvent
+    ? logs.filter((l) => l.event.includes(filterEvent.toLowerCase()))
+    : logs;
+
+  // Compute summary stats from logs
+  const inferenceEvents = logs.filter((l) => l.event === "agent_inference_complete" || l.event === "vision_inference_complete");
+  const totalTokensOut = inferenceEvents.reduce((s, l) => s + (l.tokensOut ?? 0), 0);
+  const avgTTFT = inferenceEvents.length > 0
+    ? Math.round(inferenceEvents.reduce((s, l) => s + (l.ttft ?? 0), 0) / inferenceEvents.length)
+    : null;
+  const delegatedCount = logs.filter((l) => l.event === "p2p_inference_delegated").length;
+  const errorCount = logs.filter((l) => l.event.includes("error")).length;
+
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
@@ -85,7 +116,7 @@ export default function SettingsPage() {
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-slate-100">P2P & System Settings</h1>
             <p className="text-sm text-slate-500 mt-0.5">
-              Configure peer-to-peer delegation for distributed inference
+              Configure peer-to-peer delegation and review the inference audit trail
             </p>
           </div>
 
@@ -134,10 +165,7 @@ export default function SettingsPage() {
                     <code className="text-xs text-slate-300 font-mono break-all flex-1">
                       {p2pStatus.publicKey}
                     </code>
-                    <button
-                      onClick={() => copyKey(p2pStatus.publicKey!)}
-                      className="btn-secondary text-xs shrink-0"
-                    >
+                    <button onClick={() => copyKey(p2pStatus.publicKey!)} className="btn-secondary text-xs shrink-0">
                       {copied ? "Copied!" : "Copy"}
                     </button>
                   </div>
@@ -214,45 +242,85 @@ export default function SettingsPage() {
 
           {/* Audit Log */}
           <div className="card">
-            <div className="card-header flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-semibold text-slate-200">Audit Log</h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Structured JSON log — required for hackathon submission artifacts
-                </p>
+            <div className="card-header">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-200">Inference Audit Log</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Structured log of all model loads, inference calls, and pipeline events
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { void refreshLogs(); }}
+                    disabled={logsLoading}
+                    className="btn-secondary text-xs"
+                  >
+                    {logsLoading ? "Loading…" : "Refresh"}
+                  </button>
+                  <a
+                    href={`${process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001"}/api/audit/download`}
+                    download
+                    className="btn-secondary text-xs"
+                  >
+                    Download JSON
+                  </a>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => { void handleLoadLogs(); }} className="btn-secondary text-xs">
-                  Load logs
-                </button>
-                <a
-                  href={`${process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001"}/api/audit/download`}
-                  download
-                  className="btn-secondary text-xs"
-                >
-                  Download JSON
-                </a>
-              </div>
+
+              {/* Summary stats */}
+              {logs.length > 0 && (
+                <div className="grid grid-cols-4 gap-3 mb-3">
+                  <MiniStat label="Total events" value={String(logs.length)} />
+                  <MiniStat label="Tokens out" value={String(totalTokensOut)} />
+                  <MiniStat label="Avg TTFT" value={avgTTFT !== null ? `${avgTTFT}ms` : "—"} />
+                  <MiniStat label="P2P delegated" value={String(delegatedCount)} color={delegatedCount > 0 ? "text-orange-400" : undefined} />
+                </div>
+              )}
+
+              {/* Filter */}
+              <input
+                className="input text-xs"
+                placeholder="Filter by event name…"
+                value={filterEvent}
+                onChange={(e) => setFilterEvent(e.target.value)}
+              />
             </div>
-            {showLogs && (
-              <div className="card-body max-h-80 overflow-y-auto">
-                {logs.length === 0 ? (
-                  <p className="text-xs text-slate-500">No logs for today</p>
-                ) : (
-                  <div className="space-y-1">
-                    {logs.slice(-50).map((l, i) => (
-                      <div key={i} className="flex gap-3 text-xs font-mono">
-                        <span className="text-slate-600 shrink-0">
-                          {new Date(l.timestamp).toLocaleTimeString()}
-                        </span>
-                        <span className="text-brand-400">{l.event}</span>
-                        {l.agentName && <span className="text-slate-500">{l.agentName}</span>}
-                        {l.modelUsed && <span className="text-slate-600">{l.modelUsed}</span>}
-                        {l.durationMs && <span className="text-slate-600">{l.durationMs}ms</span>}
-                      </div>
+
+            <div className="max-h-[480px] overflow-y-auto">
+              {logs.length === 0 ? (
+                <div className="px-6 py-8 text-center">
+                  <p className="text-sm text-slate-500">No log entries yet</p>
+                  <p className="text-xs text-slate-600 mt-1">Run an analysis to generate inference logs</p>
+                </div>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-slate-900 border-b border-slate-800">
+                    <tr>
+                      <th className="text-left text-slate-500 font-medium px-4 py-2 w-20">Time</th>
+                      <th className="text-left text-slate-500 font-medium px-2 py-2">Event</th>
+                      <th className="text-left text-slate-500 font-medium px-2 py-2">Agent</th>
+                      <th className="text-right text-slate-500 font-medium px-2 py-2">Model</th>
+                      <th className="text-right text-slate-500 font-medium px-2 py-2">Tokens↑</th>
+                      <th className="text-right text-slate-500 font-medium px-2 py-2">TTFT</th>
+                      <th className="text-right text-slate-500 font-medium px-2 py-2">t/s</th>
+                      <th className="text-right text-slate-500 font-medium px-2 py-2">Mode</th>
+                      <th className="text-right text-slate-500 font-medium px-2 py-2 pr-4">ms</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredLogs.map((l, i) => (
+                      <LogRow key={i} entry={l} />
                     ))}
-                  </div>
-                )}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {errorCount > 0 && (
+              <div className="px-4 py-2 border-t border-slate-800 flex items-center gap-2">
+                <div className="status-dot bg-red-500" />
+                <span className="text-xs text-red-400">{errorCount} error event{errorCount > 1 ? "s" : ""} in log</span>
               </div>
             )}
           </div>
@@ -262,11 +330,68 @@ export default function SettingsPage() {
   );
 }
 
+function LogRow({ entry: l }: { entry: AuditLogEntry }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasDetails = l.details && Object.keys(l.details).length > 0;
+
+  return (
+    <>
+      <tr
+        className={`border-b border-slate-900 hover:bg-slate-800/40 transition-colors ${hasDetails ? "cursor-pointer" : ""}`}
+        onClick={() => hasDetails && setExpanded((v) => !v)}
+      >
+        <td className="px-4 py-1.5 text-slate-600 font-mono whitespace-nowrap">
+          {new Date(l.timestamp).toLocaleTimeString("en", { hour12: false })}
+        </td>
+        <td className={`px-2 py-1.5 font-mono ${eventColor(l.event)}`}>
+          {l.event}
+          {hasDetails && (
+            <span className="text-slate-700 ml-1">{expanded ? "▲" : "▼"}</span>
+          )}
+        </td>
+        <td className="px-2 py-1.5 text-slate-500 capitalize">{l.agentName ?? ""}</td>
+        <td className="px-2 py-1.5 text-right text-slate-500 font-mono">{l.modelUsed ?? ""}</td>
+        <td className="px-2 py-1.5 text-right text-slate-400">{l.tokensOut ?? ""}</td>
+        <td className="px-2 py-1.5 text-right text-slate-400">{l.ttft != null ? `${l.ttft}ms` : ""}</td>
+        <td className="px-2 py-1.5 text-right text-slate-400">{l.tokensPerSec ?? ""}</td>
+        <td className="px-2 py-1.5 text-right">
+          {l.inferenceMode && (
+            <span className={`badge text-xs ${l.inferenceMode === "delegated" ? "bg-orange-950 text-orange-400" : "bg-slate-800 text-slate-500"}`}>
+              {l.inferenceMode}
+            </span>
+          )}
+        </td>
+        <td className="px-2 py-1.5 pr-4 text-right text-slate-500">
+          {l.durationMs != null ? `${l.durationMs}` : ""}
+        </td>
+      </tr>
+      {expanded && hasDetails && (
+        <tr className="border-b border-slate-900 bg-slate-950">
+          <td colSpan={9} className="px-4 py-2">
+            <pre className="text-xs text-slate-400 font-mono whitespace-pre-wrap break-all">
+              {JSON.stringify(l.details, null, 2)}
+            </pre>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
 function StatBox({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-slate-950 rounded-lg p-3 border border-slate-800">
       <p className="text-lg font-bold text-slate-100 capitalize">{value}</p>
       <p className="text-xs text-slate-500 mt-0.5">{label}</p>
+    </div>
+  );
+}
+
+function MiniStat({ label, value, color }: { label: string; value: string; color?: string | undefined }) {
+  return (
+    <div className="bg-slate-950 rounded-lg px-3 py-2 border border-slate-800">
+      <p className={`text-sm font-bold ${color ?? "text-slate-100"}`}>{value}</p>
+      <p className="text-xs text-slate-600 mt-0.5">{label}</p>
     </div>
   );
 }

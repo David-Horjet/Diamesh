@@ -20,6 +20,9 @@ router.post("/:caseId", async (req, res) => {
     return;
   }
 
+  // Allow re-running completed/error cases by resetting status
+  // (only block if actively analyzing right now)
+
   // Set up SSE
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
