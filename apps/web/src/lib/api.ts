@@ -23,7 +23,11 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 // ─── Health ───────────────────────────────────────────────────────────────────
-export const getHealth = () => req<HealthResponse>("/api/health");
+// Health endpoint returns HealthResponse directly (no ApiResult wrapper)
+export async function getHealth(): Promise<HealthResponse> {
+  const res = await fetch(`${BASE}/api/health`);
+  return res.json() as Promise<HealthResponse>;
+}
 
 // ─── Cases ────────────────────────────────────────────────────────────────────
 export const listCases = (limit = 20, offset = 0) =>

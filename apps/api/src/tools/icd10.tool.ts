@@ -35,20 +35,18 @@ export function lookupICD10(condition: string): { code: string; description: str
 
 export const icd10ToolDefinition = {
   type: "function" as const,
-  function: {
-    name: "icd10_lookup",
-    description:
-      "Look up ICD-10-CM codes for ocular and ophthalmic conditions. Returns matching codes and descriptions.",
-    parameters: {
-      type: "object" as const,
-      properties: {
-        condition: {
-          type: "string",
-          description: "The condition or diagnosis to look up (e.g. 'diabetic retinopathy', 'glaucoma')",
-        },
+  name: "icd10_lookup",
+  description:
+    "Look up ICD-10-CM codes for ocular and ophthalmic conditions. Returns matching codes and descriptions.",
+  parameters: {
+    type: "object" as const,
+    properties: {
+      condition: {
+        type: "string" as const,
+        description: "The condition or diagnosis to look up (e.g. 'diabetic retinopathy', 'glaucoma')",
       },
-      required: ["condition"],
     },
+    required: ["condition"],
   },
 };
 

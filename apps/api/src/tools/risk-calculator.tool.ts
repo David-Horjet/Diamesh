@@ -1,41 +1,47 @@
 export const riskCalculatorToolDefinition = {
   type: "function" as const,
-  function: {
-    name: "calculate_vision_risk",
-    description:
-      "Calculate risk scores for common ophthalmic conditions based on clinical parameters. Supports glaucoma risk, diabetic retinopathy progression, and AMD risk assessment.",
-    parameters: {
-      type: "object" as const,
-      properties: {
-        condition: {
-          type: "string",
-          enum: ["glaucoma", "diabetic_retinopathy", "amd"],
-          description: "Condition to calculate risk for",
-        },
-        parameters: {
-          type: "object" as const,
-          description:
-            "Clinical parameters. For glaucoma: iop (mmHg), age, ccт (corneal thickness μm), cdRatio. For diabetic_retinopathy: hba1c, diabetesDurationYears, hypertension. For amd: age, smoking, familyHistory.",
-        },
+  name: "calculate_vision_risk",
+  description:
+    "Calculate risk scores for common ophthalmic conditions based on clinical parameters. Supports glaucoma risk, diabetic retinopathy progression, and AMD risk assessment.",
+  parameters: {
+    type: "object" as const,
+    properties: {
+      condition: {
+        type: "string" as const,
+        description: "Condition to calculate risk for: glaucoma, diabetic_retinopathy, or amd",
       },
-      required: ["condition", "parameters"],
+      clinical_params: {
+        type: "string" as const,
+        description:
+          "JSON string of clinical parameters. For glaucoma: iop, age, cct, cdRatio. For diabetic_retinopathy: hba1c, diabetesDurationYears, hypertension. For amd: age, smoking, familyHistory.",
+      },
     },
+    required: ["condition", "clinical_params"],
   },
 };
 
 export async function executeRiskCalculatorTool(args: {
   condition: string;
-  parameters: Record<string, unknown>;
+  clinical_params?: string;
+  parameters?: Record<string, unknown>;
 }): Promise<string> {
-  switch (args.condition) {
+  // Accept either JSON string (new format) or direct object (legacy)
+  let params: Record<string, unknown> = {};
+  if (args.clinical_params) {
+    try { params = JSON.parse(args.clinical_params) as Record<string, unknown>; } catch { params = {}; }
+  } else if (args.parameters) {
+    params = args.parameters;
+  }
+  const argsWithParams = { ...args, parameters: params };
+  switch (argsWithParams.condition) {
     case "glaucoma":
-      return calculateGlaucomaRisk(args.parameters);
+      return calculateGlaucomaRisk(params);
     case "diabetic_retinopathy":
-      return calculateDRRisk(args.parameters);
+      return calculateDRRisk(params);
     case "amd":
-      return calculateAMDRisk(args.parameters);
+      return calculateAMDRisk(params);
     default:
-      return JSON.stringify({ error: `Unknown condition: ${args.condition}` });
+      return JSON.stringify({ error: `Unknown condition: ${argsWithParams.condition}` });
   }
 }
 

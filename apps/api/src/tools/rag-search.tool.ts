@@ -3,24 +3,22 @@ import { getEmbeddingsModel } from "../models/pool.js";
 
 export const ragSearchToolDefinition = {
   type: "function" as const,
-  function: {
-    name: "search_medical_knowledge",
-    description:
-      "Search the local ophthalmology knowledge base for clinical guidelines, protocols, and evidence-based information. Use this to retrieve relevant literature before making clinical assessments.",
-    parameters: {
-      type: "object" as const,
-      properties: {
-        query: {
-          type: "string",
-          description: "Clinical query to search for (e.g. 'diabetic macular edema treatment guidelines')",
-        },
-        topK: {
-          type: "number",
-          description: "Number of results to return (default 3, max 5)",
-        },
+  name: "search_medical_knowledge",
+  description:
+    "Search the local ophthalmology knowledge base for clinical guidelines, protocols, and evidence-based information. Use this to retrieve relevant literature before making clinical assessments.",
+  parameters: {
+    type: "object" as const,
+    properties: {
+      query: {
+        type: "string" as const,
+        description: "Clinical query to search for (e.g. 'diabetic macular edema treatment guidelines')",
       },
-      required: ["query"],
+      topK: {
+        type: "number" as const,
+        description: "Number of results to return (default 3, max 5)",
+      },
     },
+    required: ["query"],
   },
 };
 

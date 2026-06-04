@@ -46,7 +46,7 @@ export async function dispatchTool(
       break;
     case "calculate_vision_risk":
       result = await executeRiskCalculatorTool(
-        args as { condition: string; parameters: Record<string, unknown> }
+        args as { condition: string; clinical_params?: string }
       );
       break;
     default:

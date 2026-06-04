@@ -23,20 +23,18 @@ function getDrugDb(): DrugEntry[] {
 
 export const drugInteractionToolDefinition = {
   type: "function" as const,
-  function: {
-    name: "drug_interaction_check",
-    description:
-      "Check for known ocular side effects and drug interactions for ophthalmic medications. Returns side effects and interaction warnings.",
-    parameters: {
-      type: "object" as const,
-      properties: {
-        medication: {
-          type: "string",
-          description: "Name of the medication to check (generic or brand name)",
-        },
+  name: "drug_interaction_check",
+  description:
+    "Check for known ocular side effects and drug interactions for ophthalmic medications. Returns side effects and interaction warnings.",
+  parameters: {
+    type: "object" as const,
+    properties: {
+      medication: {
+        type: "string" as const,
+        description: "Name of the medication to check (generic or brand name)",
       },
-      required: ["medication"],
     },
+    required: ["medication"],
   },
 };
 
