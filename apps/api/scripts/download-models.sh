@@ -41,6 +41,11 @@ download_if_missing \
   "$MODELS_DIR/medpsy-4b-q4_k_m-imat.gguf" \
   "MedPsy-4B Q4_K_M"
 
+download_if_missing \
+  "https://huggingface.co/unsloth/embeddinggemma-300m-GGUF/resolve/6661a6504c30d8304af13455cb4a5d4f5bc6011f/embeddinggemma-300m-Q4_0.gguf" \
+  "$MODELS_DIR/embeddinggemma-300m-Q4_0.gguf" \
+  "EmbeddingGemma-300M Q4"
+
 echo ""
-echo "✅ All MedPsy models ready."
+echo "✅ All models ready."
 echo "   Run 'npm run rag:ingest' next."
