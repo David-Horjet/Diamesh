@@ -3,7 +3,7 @@ import type { AgentProgressEvent } from "@diamesh/shared";
 
 interface Props {
   events: AgentProgressEvent[];
-  totalDurationMs?: number;
+  totalDurationMs?: number | undefined;
 }
 
 export default function MetricsPanel({ events, totalDurationMs }: Props) {

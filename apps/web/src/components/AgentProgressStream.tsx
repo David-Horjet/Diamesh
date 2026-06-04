@@ -25,7 +25,7 @@ interface AgentState {
 function buildAgentStates(events: AgentProgressEvent[]): Record<AgentName, AgentState> {
   const states = Object.fromEntries(
     AGENT_ORDER.map((n) => [n, { status: "pending" as const, tokens: "", thinking: "", toolCalls: [] }])
-  ) as Record<AgentName, AgentState>;
+  ) as unknown as Record<AgentName, AgentState>;
 
   for (const e of events) {
     const s = states[e.agentName];
