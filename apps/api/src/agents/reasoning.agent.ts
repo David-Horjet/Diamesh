@@ -72,6 +72,13 @@ Format your response as a structured clinical assessment covering:
   }
 }
 
+function sanitize(text: string): string {
+  return text
+    .replace(/×/g, "x")
+    .replace(/÷/g, "/")
+    .replace(/[^\x00-\x7F]/g, (ch) => `[${ch.codePointAt(0)?.toString(16)}]`);
+}
+
 function buildReasoningPrompt(
   c: ClinicalCase,
   intake: IntakeResult,
@@ -79,8 +86,8 @@ function buildReasoningPrompt(
   visionContext: string | null
 ): string {
   const sections: string[] = [
-    `## Patient Case\n${intake.structuredSummary}`,
-    `Key Findings: ${intake.keyFindings.join(", ")}`,
+    `## Patient Case\n${sanitize(intake.structuredSummary)}`,
+    `Key Findings: ${intake.keyFindings.map(sanitize).join(", ")}`,
     `Urgency: ${intake.urgencyLevel}`,
   ];
 
@@ -88,10 +95,10 @@ function buildReasoningPrompt(
     sections.push(`Visual Acuity: OD ${c.vaOd ?? "NR"}, OS ${c.vaOs ?? "NR"}`);
   }
   if (c.refractionOd || c.refractionOs) {
-    sections.push(`Refraction: OD ${c.refractionOd ?? "NR"}, OS ${c.refractionOs ?? "NR"}`);
+    sections.push(`Refraction: OD ${sanitize(c.refractionOd ?? "NR")}, OS ${sanitize(c.refractionOs ?? "NR")}`);
   }
   if (c.ocularFindings) {
-    sections.push(`Ocular Findings: ${c.ocularFindings}`);
+    sections.push(`Ocular Findings: ${sanitize(c.ocularFindings)}`);
   }
   if (visionContext) {
     sections.push(`## Image Analysis\n${visionContext}`);

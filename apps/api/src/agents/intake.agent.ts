@@ -66,13 +66,22 @@ Urgency definitions:
   }
 }
 
+function sanitize(text: string): string {
+  return text
+    .replace(/×/g, "x")
+    .replace(/÷/g, "/")
+    .replace(/[^\x00-\x7F]/g, (c) => `[${c.codePointAt(0)?.toString(16)}]`);
+}
+
 function buildCaseText(c: ClinicalCase): string {
   const lines: (string | null)[] = [
-    `Chief Complaint: ${c.chiefComplaint}`,
-    c.clinicalNotes ? `Clinical Notes: ${c.clinicalNotes}` : null,
+    `Chief Complaint: ${sanitize(c.chiefComplaint)}`,
+    c.clinicalNotes ? `Clinical Notes: ${sanitize(c.clinicalNotes)}` : null,
     c.vaOd || c.vaOs ? `Visual Acuity: OD ${c.vaOd ?? "NR"}, OS ${c.vaOs ?? "NR"}` : null,
-    c.refractionOd || c.refractionOs ? `Refraction: OD ${c.refractionOd ?? "NR"}, OS ${c.refractionOs ?? "NR"}` : null,
-    c.ocularFindings ? `Ocular Findings: ${c.ocularFindings}` : null,
+    c.refractionOd || c.refractionOs
+      ? `Refraction: OD ${sanitize(c.refractionOd ?? "NR")}, OS ${sanitize(c.refractionOs ?? "NR")}`
+      : null,
+    c.ocularFindings ? `Ocular Findings: ${sanitize(c.ocularFindings)}` : null,
   ];
   return lines.filter((l): l is string => l !== null).join("\n");
 }

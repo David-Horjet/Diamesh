@@ -71,7 +71,7 @@ export abstract class BaseAgent {
         stream: true,
         captureThinking,
         ...(tools.length > 0 ? { tools } : {}),
-        kvCache: true,
+        kvCache: false,
       });
 
       let pendingToolCall: { name: string; args: string } | null = null;
