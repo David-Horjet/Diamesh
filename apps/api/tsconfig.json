@@ -2,11 +2,12 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": "../../",
+    "typeRoots": ["../../node_modules/@types"],
     "paths": {
       "@diamesh/shared": ["../../packages/shared/src/index.ts"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "../../packages/shared/src"],
   "exclude": ["node_modules", "dist"]
 }

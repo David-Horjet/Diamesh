@@ -28,8 +28,8 @@ export interface ClinicalCase {
   ocularFindings: string | null;
   status: CaseStatus;
   createdAt: string;
-  patient?: Patient;
-  images?: CaseImage[];
+  patient?: Patient | undefined;
+  images?: CaseImage[] | undefined;
 }
 
 export type CaseStatus = "pending" | "analyzing" | "completed" | "error";

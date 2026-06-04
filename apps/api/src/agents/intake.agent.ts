@@ -15,7 +15,7 @@ export class IntakeAgent extends BaseAgent {
 
   async analyze(
     clinicalCase: ClinicalCase,
-    onEvent?: (e: AgentProgressEvent) => void
+    onEvent?: ((e: AgentProgressEvent) => void) | undefined
   ): Promise<IntakeResult> {
     const modelId = await getMedPsy1B();
 
@@ -60,19 +60,19 @@ Urgency definitions:
     return {
       structuredSummary: result.text,
       keyFindings: [],
-      suggestedSearchTerms: [clinicalCase.chiefComplaint],
+      suggestedSearchTerms: [clinicalCase.chiefComplaint ?? "ophthalmic condition"],
       urgencyLevel: "routine",
     };
   }
 }
 
 function buildCaseText(c: ClinicalCase): string {
-  const lines: string[] = [
+  const lines: (string | null)[] = [
     `Chief Complaint: ${c.chiefComplaint}`,
     c.clinicalNotes ? `Clinical Notes: ${c.clinicalNotes}` : null,
     c.vaOd || c.vaOs ? `Visual Acuity: OD ${c.vaOd ?? "NR"}, OS ${c.vaOs ?? "NR"}` : null,
     c.refractionOd || c.refractionOs ? `Refraction: OD ${c.refractionOd ?? "NR"}, OS ${c.refractionOs ?? "NR"}` : null,
     c.ocularFindings ? `Ocular Findings: ${c.ocularFindings}` : null,
   ];
-  return lines.filter(Boolean).join("\n");
+  return lines.filter((l): l is string => l !== null).join("\n");
 }

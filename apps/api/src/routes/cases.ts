@@ -47,7 +47,18 @@ router.post("/", upload.array("images", 5), (req, res) => {
       return;
     }
 
-    const newCase = createCase(parsed.data);
+    const d = parsed.data;
+    const newCase = createCase({
+      patientName: d.patientName,
+      chiefComplaint: d.chiefComplaint,
+      ...(d.patientDob !== undefined && { patientDob: d.patientDob }),
+      ...(d.clinicalNotes !== undefined && { clinicalNotes: d.clinicalNotes }),
+      ...(d.vaOd !== undefined && { vaOd: d.vaOd }),
+      ...(d.vaOs !== undefined && { vaOs: d.vaOs }),
+      ...(d.refractionOd !== undefined && { refractionOd: d.refractionOd }),
+      ...(d.refractionOs !== undefined && { refractionOs: d.refractionOs }),
+      ...(d.ocularFindings !== undefined && { ocularFindings: d.ocularFindings }),
+    });
 
     // Attach uploaded images
     const files = req.files as Express.Multer.File[] | undefined;

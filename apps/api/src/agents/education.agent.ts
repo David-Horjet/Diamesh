@@ -15,7 +15,7 @@ export class EducationAgent extends BaseAgent {
     caseId: string,
     patientName: string,
     differentialResult: DifferentialResult,
-    onEvent?: (e: AgentProgressEvent) => void
+    onEvent?: ((e: AgentProgressEvent) => void) | undefined
   ): Promise<EducationResult> {
     const modelId = await getMedPsy1B();
 

@@ -14,7 +14,7 @@ export interface AgentRunOptions {
   tools?: object[];
   captureThinking?: boolean;
   inferenceMode?: "local" | "delegated";
-  onEvent?: (event: AgentProgressEvent) => void;
+  onEvent?: ((event: AgentProgressEvent) => void) | undefined;
 }
 
 export interface AgentRunResult {
@@ -116,11 +116,12 @@ export abstract class BaseAgent {
         onEvent?.({ type: "agent_tool_call", agentName: this.name, toolCall: record });
 
         // Append tool call + result to history for next loop
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         currentHistory = [
           ...currentHistory,
-          { role: "assistant" as const, content: loopText || `Calling tool: ${pendingToolCall.name}` },
-          { role: "tool" as const, content: result, name: pendingToolCall.name } as never,
-        ];
+          { role: "assistant", content: loopText || `Calling tool: ${pendingToolCall.name}` } as any,
+          { role: "tool", content: result, name: pendingToolCall.name } as any,
+        ] as typeof currentHistory;
         continue;
       }
 

@@ -16,7 +16,7 @@ export class KnowledgeAgent extends BaseAgent {
   async retrieve(
     caseId: string,
     intakeResult: IntakeResult,
-    onEvent?: (e: AgentProgressEvent) => void
+    onEvent?: ((e: AgentProgressEvent) => void) | undefined
   ): Promise<KnowledgeResult> {
     const modelId = await getMedPsy1B();
 

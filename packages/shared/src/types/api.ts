@@ -29,14 +29,14 @@ export interface ModelHealthEntry {
 export interface AuditLogEntry {
   timestamp: string;
   event: string;
-  caseId?: string;
-  agentName?: string;
-  modelUsed?: string;
-  tokensIn?: number;
-  tokensOut?: number;
-  ttft?: number;
-  tokensPerSec?: number;
-  durationMs?: number;
-  inferenceMode?: "local" | "delegated";
-  details?: Record<string, unknown>;
+  caseId?: string | undefined;
+  agentName?: string | undefined;
+  modelUsed?: string | undefined;
+  tokensIn?: number | undefined;
+  tokensOut?: number | undefined;
+  ttft?: number | undefined;
+  tokensPerSec?: number | undefined;
+  durationMs?: number | undefined;
+  inferenceMode?: "local" | "delegated" | undefined;
+  details?: Record<string, unknown> | undefined;
 }

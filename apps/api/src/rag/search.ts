@@ -21,7 +21,7 @@ export async function searchKnowledgeBase(
 
     if (!results || results.length === 0) return [];
 
-    return results.map((r) => ({
+    return results.map((r: { document?: { content?: string; id?: string }; score: number }) => ({
       content: r.document?.content ?? "",
       score: r.score,
       source: r.document?.id ?? "unknown",

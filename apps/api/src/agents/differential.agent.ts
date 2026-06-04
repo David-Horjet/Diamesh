@@ -15,7 +15,7 @@ export class DifferentialAgent extends BaseAgent {
   async rank(
     caseId: string,
     reasoningResult: ReasoningResult,
-    onEvent?: (e: AgentProgressEvent) => void
+    onEvent?: ((e: AgentProgressEvent) => void) | undefined
   ): Promise<DifferentialResult> {
     const modelId = await getMedPsy4B();
 

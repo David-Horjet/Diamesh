@@ -28,7 +28,7 @@ async function run(): Promise<void> {
       { id: "ophthalmology-guidelines", content: guidelines },
     ],
     chunk: true,
-    onProgress: (p) => {
+    onProgress: (p: { percentage: number }) => {
       if (p.percentage % 20 === 0) console.log(`[rag] Guidelines ingest: ${p.percentage}%`);
     },
   });
@@ -43,7 +43,7 @@ async function run(): Promise<void> {
     modelId,
     documents: icd10Docs,
     chunk: false,
-    onProgress: (p) => {
+    onProgress: (p: { percentage: number }) => {
       if (p.percentage % 25 === 0) console.log(`[rag] ICD-10 ingest: ${p.percentage}%`);
     },
   });

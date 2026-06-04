@@ -21,7 +21,7 @@ export class ReasoningAgent extends BaseAgent {
     intakeResult: IntakeResult,
     knowledgeResult: KnowledgeResult,
     visionResults: VisionAnalysisResult[],
-    onEvent?: (e: AgentProgressEvent) => void
+    onEvent?: ((e: AgentProgressEvent) => void) | undefined
   ): Promise<ReasoningResult> {
     const modelId = await getMedPsy4B();
 
