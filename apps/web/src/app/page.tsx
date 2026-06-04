@@ -11,9 +11,13 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([listCases(), getHealth()])
-      .then(([c, h]) => { setCases(c); setHealth(h); })
-      .catch(() => { /* API not ready yet */ })
+    listCases()
+      .then(setCases)
+      .catch(() => { /* cases unavailable */ });
+
+    getHealth()
+      .then(setHealth)
+      .catch(() => { /* health unavailable */ })
       .finally(() => setLoading(false));
   }, []);
 

@@ -8,7 +8,9 @@ const startTime = Date.now();
 
 router.get("/", (_req, res) => {
   const models = getPoolHealth();
-  const allLoaded = models.filter((m) => m.name !== "SmolVLM2-500M (Vision)").every((m) => m.status === "loaded");
+  // Only the always-loaded base models determine readiness; MedPsy-4B and SmolVLM2 are on-demand
+  const baseModels = models.filter((m) => m.name === "GTE-Large (Embeddings)" || m.name === "MedPsy-1.7B");
+  const allLoaded = baseModels.every((m) => m.status === "loaded");
 
   const response: HealthResponse = {
     status: allLoaded ? "ok" : "degraded",
