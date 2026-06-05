@@ -86,21 +86,23 @@ export abstract class BaseAgent {
       let loopThinking = "";
 
       for await (const event of run.events) {
-        switch (event.type) {
+        // The SDK emits delta text under `.text` (not `.delta`)
+        const e = event as { type: string; text?: string; stats?: { promptTokens?: number; generatedTokens?: number } };
+        switch (e.type) {
           case "contentDelta":
             if (firstTokenTime === null) firstTokenTime = Date.now();
-            loopText += event.delta ?? "";
-            onEvent?.({ type: "agent_token", agentName: this.name, token: event.delta ?? "" });
+            loopText += e.text ?? "";
+            onEvent?.({ type: "agent_token", agentName: this.name, token: e.text ?? "" });
             break;
 
           case "thinkingDelta":
-            loopThinking += event.delta ?? "";
-            onEvent?.({ type: "agent_thinking", agentName: this.name, thinking: event.delta ?? "" });
+            loopThinking += e.text ?? "";
+            onEvent?.({ type: "agent_thinking", agentName: this.name, thinking: e.text ?? "" });
             break;
 
-          case "usage":
-            tokensIn += event.inputTokens ?? 0;
-            tokensOut += event.outputTokens ?? 0;
+          case "completionStats":
+            tokensIn += e.stats?.promptTokens ?? 0;
+            tokensOut += e.stats?.generatedTokens ?? 0;
             break;
         }
       }

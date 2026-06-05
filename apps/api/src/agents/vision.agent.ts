@@ -75,12 +75,13 @@ Be specific and use clinical terminology.`;
     });
 
     for await (const event of run.events) {
-      if (event.type === "contentDelta") {
+      const e = event as { type: string; text?: string; stats?: { generatedTokens?: number } };
+      if (e.type === "contentDelta") {
         if (firstTokenTime === null) firstTokenTime = Date.now();
-        description += event.delta ?? "";
-        onEvent?.({ type: "agent_token", agentName: this.name, token: event.delta ?? "" });
+        description += e.text ?? "";
+        onEvent?.({ type: "agent_token", agentName: this.name, token: e.text ?? "" });
       }
-      if (event.type === "usage") tokensOut += event.outputTokens ?? 0;
+      if (e.type === "completionStats") tokensOut += e.stats?.generatedTokens ?? 0;
     }
 
     // Attempt OCR for text elements (e.g. VA charts, labels on images)
