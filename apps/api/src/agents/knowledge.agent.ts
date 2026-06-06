@@ -1,5 +1,6 @@
 import { BaseAgent } from "./base.agent.js";
-import { getMedPsy1B } from "../models/pool.js";
+import { getReasoningSmall } from "../models/pool.js";
+import { MODEL_DISPLAY } from "../models/constants.js";
 import { searchKnowledgeBase, formatRAGContext } from "../rag/search.js";
 import type { AgentName, AgentProgressEvent } from "@diamesh/shared";
 import type { IntakeResult } from "./intake.agent.js";
@@ -18,7 +19,7 @@ export class KnowledgeAgent extends BaseAgent {
     intakeResult: IntakeResult,
     onEvent?: ((e: AgentProgressEvent) => void) | undefined
   ): Promise<KnowledgeResult> {
-    const modelId = await getMedPsy1B();
+    const modelId = await getReasoningSmall();
 
     // Search RAG for each suggested term and combine
     const allResults = await Promise.all(
@@ -42,7 +43,7 @@ export class KnowledgeAgent extends BaseAgent {
     const result = await this.run({
       caseId,
       modelId,
-      modelName: "MedPsy-1.7B",
+      modelName: MODEL_DISPLAY.REASONING_SMALL,
       tools: [],
       captureThinking: false,
       onEvent,

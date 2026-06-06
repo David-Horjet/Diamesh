@@ -79,7 +79,8 @@ export abstract class BaseAgent {
         history: currentHistory,
         stream: true,
         captureThinking,
-        kvCache: false,
+        // Bound generation: prevents runaway output exhausting memory on 8GB CPU.
+        generationParams: { predict: 500 },
       });
 
       let loopText = "";

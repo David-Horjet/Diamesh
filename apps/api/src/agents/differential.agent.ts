@@ -1,5 +1,6 @@
 import { BaseAgent } from "./base.agent.js";
-import { getMedPsy4B } from "../models/pool.js";
+import { getReasoningLarge } from "../models/pool.js";
+import { MODEL_DISPLAY } from "../models/constants.js";
 import { lookupICD10 } from "../tools/icd10.tool.js";
 import type { AgentName, AgentProgressEvent, Differential } from "@diamesh/shared";
 import type { ReasoningResult } from "./reasoning.agent.js";
@@ -17,12 +18,12 @@ export class DifferentialAgent extends BaseAgent {
     reasoningResult: ReasoningResult,
     onEvent?: ((e: AgentProgressEvent) => void) | undefined
   ): Promise<DifferentialResult> {
-    const modelId = await getMedPsy4B();
+    const modelId = await getReasoningLarge();
 
     const result = await this.run({
       caseId,
       modelId,
-      modelName: "MedPsy-4B",
+      modelName: MODEL_DISPLAY.REASONING_LARGE,
       // No tools — produces clean structured JSON. ICD-10 codes are verified
       // against the local code database after parsing (see enrichWithIcd10).
       captureThinking: false,
