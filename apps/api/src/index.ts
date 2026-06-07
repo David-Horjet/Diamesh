@@ -1,4 +1,5 @@
 import "node:process";
+import { execSync } from "child_process";
 import express from "express";
 import cors from "cors";
 import path from "path";
@@ -21,6 +22,25 @@ process.env["QVAC_CONFIG_PATH"] = path.resolve(
 const PORT = Number(process.env["API_PORT"] ?? 3001);
 const HOST = process.env["API_HOST"] ?? "127.0.0.1";
 
+function logMemoryStatus(): void {
+  try {
+    const out = execSync("vm_stat").toString();
+    const pages = (re: RegExp) => Number(out.match(re)?.[1] ?? 0);
+    const availableGB =
+      ((pages(/Pages free:\s+(\d+)/) +
+        pages(/Pages speculative:\s+(\d+)/) +
+        pages(/Pages inactive:\s+(\d+)/)) *
+        4096) /
+      1_073_741_824;
+    if (availableGB < 2.5) {
+      console.warn(`\n⚠️  LOW MEMORY: ${availableGB.toFixed(1)}GB available — inference needs ≥2.5GB.`);
+      console.warn(`   Close Chrome (Cmd+Q) before running analysis to avoid SIGSEGV crashes.\n`);
+    } else {
+      console.log(`[startup] Memory: ${availableGB.toFixed(1)}GB available — OK for inference.`);
+    }
+  } catch { /* vm_stat unavailable on non-macOS */ }
+}
+
 async function main(): Promise<void> {
   // ── Init subsystems ────────────────────────────────────────────────────────
   initAuditLog();
@@ -29,6 +49,7 @@ async function main(): Promise<void> {
   auditLog({ event: "server_start", details: { port: PORT, host: HOST } });
 
   // ── Load base models (blocks until ready) ─────────────────────────────────
+  logMemoryStatus();
   console.log("[startup] Loading base models — this may take a moment on first run...");
   await initBaseModels();
 
