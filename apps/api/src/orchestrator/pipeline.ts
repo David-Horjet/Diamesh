@@ -42,7 +42,7 @@ export async function runPipeline(
     // ── Step 3: Knowledge Retrieval (parallel-safe — uses embeddings model) ─
     const knowledgeResult = await knowledgeAgent.retrieve(caseId, intakeResult, onEvent);
 
-    // ── Step 4: Clinical Reasoning (MedPsy-4B, captureThinking) ────────────
+    // ── Step 4: Clinical Reasoning (large reasoner, captureThinking) ────────────
     const reasoningResult = await reasoningAgent.reason(
       clinicalCase,
       intakeResult,
@@ -51,10 +51,10 @@ export async function runPipeline(
       onEvent
     );
 
-    // ── Step 5: Differential Diagnosis (MedPsy-4B still loaded) ────────────
+    // ── Step 5: Differential Diagnosis (large reasoner still loaded) ────────────
     const differentialResult = await differentialAgent.rank(caseId, reasoningResult, onEvent);
 
-    // ── Step 6: Patient Education (MedPsy-1.7B swaps back in) ──────────────
+    // ── Step 6: Patient Education (small reasoner swaps back in) ──────────────
     const educationResult = await educationAgent.generate(
       caseId,
       clinicalCase.patient?.name ?? "Patient",

@@ -1,5 +1,6 @@
 import { BaseAgent } from "./base.agent.js";
-import { getMedPsy4B } from "../models/pool.js";
+import { getReasoningLarge } from "../models/pool.js";
+import { MODEL_DISPLAY } from "../models/constants.js";
 import { REASONING_TOOLS } from "../tools/index.js";
 import type { AgentName, AgentProgressEvent, ClinicalCase } from "@diamesh/shared";
 import type { IntakeResult } from "./intake.agent.js";
@@ -23,7 +24,7 @@ export class ReasoningAgent extends BaseAgent {
     visionResults: VisionAnalysisResult[],
     onEvent?: ((e: AgentProgressEvent) => void) | undefined
   ): Promise<ReasoningResult> {
-    const modelId = await getMedPsy4B();
+    const modelId = await getReasoningLarge();
 
     const visionContext =
       visionResults.length > 0
@@ -37,7 +38,7 @@ export class ReasoningAgent extends BaseAgent {
     const result = await this.run({
       caseId: clinicalCase.id,
       modelId,
-      modelName: "MedPsy-4B",
+      modelName: MODEL_DISPLAY.REASONING_LARGE,
       tools: REASONING_TOOLS,
       captureThinking: true,
       inferenceMode: "local",

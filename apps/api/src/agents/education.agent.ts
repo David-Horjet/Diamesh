@@ -1,5 +1,6 @@
 import { BaseAgent } from "./base.agent.js";
-import { getMedPsy1B } from "../models/pool.js";
+import { getReasoningSmall } from "../models/pool.js";
+import { MODEL_DISPLAY } from "../models/constants.js";
 import type { AgentName, AgentProgressEvent } from "@diamesh/shared";
 import type { DifferentialResult } from "./differential.agent.js";
 
@@ -17,7 +18,7 @@ export class EducationAgent extends BaseAgent {
     differentialResult: DifferentialResult,
     onEvent?: ((e: AgentProgressEvent) => void) | undefined
   ): Promise<EducationResult> {
-    const modelId = await getMedPsy1B();
+    const modelId = await getReasoningSmall();
 
     const topCondition = differentialResult.differentials[0];
     const actionsList = differentialResult.recommendedActions
@@ -27,7 +28,7 @@ export class EducationAgent extends BaseAgent {
     const result = await this.run({
       caseId,
       modelId,
-      modelName: "MedPsy-1.7B",
+      modelName: MODEL_DISPLAY.REASONING_SMALL,
       tools: [],
       captureThinking: false,
       onEvent,

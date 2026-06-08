@@ -1,5 +1,6 @@
 import { BaseAgent } from "./base.agent.js";
-import { getMedPsy1B } from "../models/pool.js";
+import { getReasoningSmall } from "../models/pool.js";
+import { MODEL_DISPLAY } from "../models/constants.js";
 import type { AgentName, AgentProgressEvent, ClinicalCase } from "@diamesh/shared";
 
 export interface IntakeResult {
@@ -16,14 +17,14 @@ export class IntakeAgent extends BaseAgent {
     clinicalCase: ClinicalCase,
     onEvent?: ((e: AgentProgressEvent) => void) | undefined
   ): Promise<IntakeResult> {
-    const modelId = await getMedPsy1B();
+    const modelId = await getReasoningSmall();
 
     const caseText = buildCaseText(clinicalCase);
 
     const result = await this.run({
       caseId: clinicalCase.id,
       modelId,
-      modelName: "MedPsy-1.7B",
+      modelName: MODEL_DISPLAY.REASONING_SMALL,
       // No tools — intake just produces structured JSON. RAG retrieval is the
       // knowledge agent's job. Keeping this tool-free guarantees clean JSON output.
       captureThinking: false,

@@ -79,7 +79,8 @@ export abstract class BaseAgent {
         history: currentHistory,
         stream: true,
         captureThinking,
-        kvCache: false,
+        // Bound generation: 300 tokens keeps peak memory low on 8GB Intel Mac.
+        generationParams: { predict: 300 },
       });
 
       let loopText = "";

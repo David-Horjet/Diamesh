@@ -1,4 +1,4 @@
-import { completion, ocr } from "@qvac/sdk";
+import { completion } from "@qvac/sdk";
 import { v4 as uuid } from "uuid";
 import { getVisionModel, unloadVision } from "../models/pool.js";
 import { insertAgentRun } from "../db/queries.js";
@@ -33,7 +33,7 @@ export class VisionAgent {
       results.push(result);
     }
 
-    // Unload vision model immediately after to free RAM for MedPsy-4B
+    // Unload vision model immediately after to free RAM for the large reasoner
     await unloadVision();
     auditLog({ event: "vision_agent_complete", details: { imagesAnalyzed: images.length, caseId } });
 
