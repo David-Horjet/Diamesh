@@ -10,7 +10,7 @@ diamesh.db
 diamesh.db-shm
 diamesh.db-wal
 logs/
-models/
+/models/
 .qvac/
 *.gguf
 *.onnx
