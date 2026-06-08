@@ -147,11 +147,7 @@ export default function CasePage() {
           {/* Tab content */}
           {activeTab === "progress" && (
             <div>
-              {stream.error && (
-                <div className="rounded-lg border border-red-900 bg-red-950/30 px-4 py-3 mb-4">
-                  <p className="text-sm text-red-400">{stream.error}</p>
-                </div>
-              )}
+              
               {stream.events.length === 0 && !stream.isRunning && clinicalCase.status !== "completed" && (
                 <div className="card p-12 text-center">
                   <p className="text-slate-400 text-sm">Click "Run Analysis" to start the multi-agent pipeline</p>
