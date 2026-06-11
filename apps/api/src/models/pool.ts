@@ -43,17 +43,21 @@ async function loadSingle(key: keyof typeof MODELS, extra?: Record<string, unkno
     // garbage tokens on Intel Macs (no working Metal/Vulkan path). CPU inference
     // is correct and is the supported path on Intel per QVAC system requirements.
     //
-    // reasoning_budget:0 disables the model's <think> channel (docs-recommended
-    // for Qwen3). This keeps responses short and bounded — essential on 8GB CPU,
-    // where uncapped reasoning generation exhausts memory and segfaults.
-    const useMedpsy = process.env["USE_MEDPSY"] === "true";
+    // ctx_size:4096 — the documented working value (see docs/MODEL_NOTES.md).
+    // 2048 was too tight: with tool instructions in the system prompt plus a
+    // generous output budget, prompts were getting truncated mid-instruction.
+    //
+    // reasoning_budget:0 disables the model's <think> channel for BOTH Qwen3
+    // and MedPsy (previously only applied to Qwen3 — MedPsy's <think> ran
+    // unbounded and was eating the entire per-call token budget, leaving
+    // little/nothing for the actual answer).
     const defaultConfig = key === "GTE_LARGE"
       ? { batchSize: 512, device: "cpu", gpuLayers: 0 }
       : {
-          ctx_size: 2048,
+          ctx_size: 4096,
           device: "cpu",
           gpu_layers: 0,
-          ...(useMedpsy ? {} : { reasoning_budget: 0 }),
+          reasoning_budget: 0,
         };
     const extraConfig = (extra?.["modelConfig"] as Record<string, unknown> | undefined) ?? {};
 

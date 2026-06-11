@@ -42,7 +42,7 @@ export abstract class BaseAgent {
       modelId,
       modelName,
       tools = [],
-      maxTokens = 600,
+      maxTokens = 1000,
       inferenceMode = "local",
       onEvent,
     } = opts;
@@ -54,9 +54,9 @@ export abstract class BaseAgent {
     // a tool-aware chat template that MedPsy's GGUF does not provide).
     const toolInstructions = tools.length > 0 ? buildToolInstructions(tools) : "";
 
-    // Truncate prompts to stay within the 2048 token ctx window configured in
+    // Truncate prompts to stay within the 4096 token ctx window configured in
     // pool.ts. Rough estimate: 1 token ≈ 4 chars. Reserve `maxTokens` for output.
-    const MAX_PROMPT_CHARS = (2048 - maxTokens) * 4;
+    const MAX_PROMPT_CHARS = (4096 - maxTokens) * 4;
     const fullSystem = systemPrompt + toolInstructions;
     const safeSystem = fullSystem.slice(0, Math.floor(MAX_PROMPT_CHARS * 0.45));
     const safeUser = userPrompt.slice(0, Math.floor(MAX_PROMPT_CHARS * 0.55));
@@ -84,14 +84,17 @@ export abstract class BaseAgent {
 
       // On the forced final round, tell the model explicitly that no more
       // tool calls will be honored — otherwise it may emit yet another
-      // `{"tool_call": ...}` JSON, which gets stripped below and would leave
-      // the agent's result empty.
+      // `{"tool_call": ...}` JSON (stripped below, leaving an empty result),
+      // or simply paste back the last tool's raw output instead of writing
+      // up its own findings.
       const requestHistory = isFinalToolRound
         ? [
             ...currentHistory,
             {
               role: "user" as const,
-              content: "Do not call any more tools. Provide your complete final answer now as plain text.",
+              content:
+                "Do not call any more tools, and do not copy or repeat any tool output verbatim. " +
+                "Using everything you've gathered, write your complete final answer now in your own words, as plain text.",
             },
           ]
         : currentHistory;

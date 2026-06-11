@@ -41,9 +41,10 @@ export class ReasoningAgent extends BaseAgent {
       modelName: MODEL_DISPLAY.REASONING_LARGE,
       tools: REASONING_TOOLS,
       // Reasoning naturally produces a longer <think> block (captured into
-      // thinkingTrace) plus a multi-section structured assessment — give it
-      // more headroom than the default so the actual answer isn't truncated.
-      maxTokens: 900,
+      // thinkingTrace) plus a multi-section structured assessment, on top of
+      // tool-call rounds — give it more headroom than the default so the
+      // actual answer isn't truncated.
+      maxTokens: 1400,
       inferenceMode: "local",
       onEvent,
       systemPrompt: `You are an experienced ophthalmologist providing clinical decision support.

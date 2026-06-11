@@ -261,7 +261,8 @@ function AgentCard({
         </div>
       </div>
 
-      {(state.status === "running" || state.status === "complete") && (state.tokens || state.thinking) && (
+      {(state.status === "complete" ||
+        ((state.status === "running") && (state.tokens || state.thinking))) && (
         <div className="card-body pt-3">
           {showThinking && state.thinking && (
             <div className="mb-3">
@@ -270,10 +271,14 @@ function AgentCard({
             </div>
           )}
           {JSON_OUTPUT_AGENTS.has(name) ? (
-            state.status === "complete" && state.tokens ? (
+            state.status === "complete" ? (
               <div className="bg-slate-950 rounded-lg p-4 max-h-64 overflow-y-auto">
-                {renderStructuredOutput(name, state.tokens) ?? (
-                  <p className="text-sm text-slate-400 leading-relaxed whitespace-pre-wrap">{state.tokens}</p>
+                {state.tokens ? (
+                  renderStructuredOutput(name, state.tokens) ?? (
+                    <p className="text-sm text-slate-400 leading-relaxed whitespace-pre-wrap">{state.tokens}</p>
+                  )
+                ) : (
+                  <p className="text-sm text-slate-500">No structured output was returned for this step.</p>
                 )}
               </div>
             ) : (
@@ -290,6 +295,10 @@ function AgentCard({
               {isActivelyStreaming && (
                 <span className="inline-block w-1.5 h-3.5 bg-brand-400 ml-0.5 animate-pulse" />
               )}
+            </div>
+          ) : state.status === "complete" ? (
+            <div className="bg-slate-950 rounded-lg p-4">
+              <p className="text-sm text-slate-500">No response was generated for this step.</p>
             </div>
           ) : (
             isActivelyStreaming && (
