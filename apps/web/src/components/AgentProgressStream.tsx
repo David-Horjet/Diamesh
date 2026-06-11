@@ -1,5 +1,5 @@
 "use client";
-import type { AgentProgressEvent, AgentName } from "@diamesh/shared";
+import type { AgentProgressEvent, AgentName, Differential } from "@diamesh/shared";
 
 const AGENT_LABELS: Record<AgentName, string> = {
   intake: "Intake Analysis",
@@ -7,7 +7,7 @@ const AGENT_LABELS: Record<AgentName, string> = {
   knowledge: "Knowledge Retrieval",
   reasoning: "Clinical Reasoning",
   differential: "Differential Diagnosis",
-  education: "Patient Education",
+  education: "Patient Communication Guide",
 };
 
 const AGENT_ORDER: AgentName[] = [
@@ -84,6 +84,133 @@ export default function AgentProgressStream({ events, isRunning }: {
   );
 }
 
+// Intake, knowledge and differential produce JSON for the *next* pipeline
+// step, not for clinicians to read directly. Once those agents finish, render
+// a formatted clinical summary instead — never raw `{ "key": "value" }` text.
+const JSON_OUTPUT_AGENTS = new Set<AgentName>(["intake", "knowledge", "differential"]);
+
+interface IntakeOutput {
+  structuredSummary?: string;
+  keyFindings?: string[];
+  suggestedSearchTerms?: string[];
+  urgencyLevel?: "routine" | "urgent" | "emergent";
+}
+
+interface DifferentialOutput {
+  differentials?: Differential[];
+  recommendedActions?: string[];
+}
+
+function extractJson<T>(text: string, kind: "object" | "array"): T | null {
+  const match = text.match(kind === "object" ? /\{[\s\S]*\}/ : /\[[\s\S]*\]/);
+  if (!match) return null;
+  try {
+    return JSON.parse(match[0]) as T;
+  } catch {
+    return null;
+  }
+}
+
+// Renders a finished agent's output as a readable clinical summary. Returns
+// null if it can't be parsed, so the caller can fall back to raw text.
+function renderStructuredOutput(name: AgentName, tokens: string): ReactNode | null {
+  if (name === "intake") {
+    const r = extractJson<IntakeOutput>(tokens, "object");
+    if (!r) return null;
+    return (
+      <div className="space-y-3">
+        {r.structuredSummary && (
+          <p className="text-sm text-slate-300 leading-relaxed">{r.structuredSummary}</p>
+        )}
+        {r.keyFindings && r.keyFindings.length > 0 && (
+          <div>
+            <p className="text-xs text-slate-600 uppercase tracking-wide mb-1">Key Findings</p>
+            <ul className="space-y-1">
+              {r.keyFindings.map((f, i) => (
+                <li key={i} className="text-sm text-slate-300 flex gap-2">
+                  <span className="text-slate-600">•</span>
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {r.urgencyLevel && (
+            <span className={`badge-${r.urgencyLevel}`}>{r.urgencyLevel} priority</span>
+          )}
+          {r.suggestedSearchTerms && r.suggestedSearchTerms.length > 0 && (
+            <span className="text-xs text-slate-500">Looking into: {r.suggestedSearchTerms.join(", ")}</span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (name === "knowledge") {
+    const guidelines = extractJson<string[]>(tokens, "array");
+    if (!guidelines) return null;
+    if (guidelines.length === 0) {
+      return <p className="text-sm text-slate-400">No specific guidelines matched this case.</p>;
+    }
+    return (
+      <div>
+        <p className="text-xs text-slate-600 uppercase tracking-wide mb-1">Relevant Clinical Guidelines</p>
+        <ul className="space-y-1">
+          {guidelines.map((g, i) => (
+            <li key={i} className="text-sm text-slate-300 flex gap-2">
+              <span className="text-slate-600">•</span>
+              <span>{g}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  if (name === "differential") {
+    const r = extractJson<DifferentialOutput>(tokens, "object");
+    if (!r || !r.differentials) return null;
+    return (
+      <div className="space-y-3">
+        <div className="space-y-2">
+          {r.differentials.map((d) => (
+            <div key={d.rank} className="flex items-start gap-3">
+              <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-400 shrink-0">
+                {d.rank}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium text-slate-100">{d.condition}</span>
+                  {d.icd10Code && (
+                    <span className="badge bg-slate-800 text-slate-400 font-mono">{d.icd10Code}</span>
+                  )}
+                  {d.probability && <span className={`badge-${d.probability}`}>{d.probability}</span>}
+                </div>
+                {d.rationale && <p className="text-xs text-slate-400 mt-1 leading-relaxed">{d.rationale}</p>}
+              </div>
+            </div>
+          ))}
+        </div>
+        {r.recommendedActions && r.recommendedActions.length > 0 && (
+          <div>
+            <p className="text-xs text-slate-600 uppercase tracking-wide mb-1">Recommended Next Steps</p>
+            <ol className="space-y-1">
+              {r.recommendedActions.map((a, i) => (
+                <li key={i} className="text-sm text-slate-300">
+                  {i + 1}. {a}
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return null;
+}
+
 function AgentCard({
   name,
   label,
@@ -134,7 +261,7 @@ function AgentCard({
         </div>
       </div>
 
-      {(state.status === "running" || state.status === "complete") && state.tokens && (
+      {(state.status === "running" || state.status === "complete") && (state.tokens || state.thinking) && (
         <div className="card-body pt-3">
           {showThinking && state.thinking && (
             <div className="mb-3">
@@ -142,12 +269,33 @@ function AgentCard({
               <div className="thinking-block max-h-40 overflow-y-auto">{state.thinking}</div>
             </div>
           )}
-          <div className="agent-token-stream max-h-48 overflow-y-auto text-xs">
-            {state.tokens}
-            {isActivelyStreaming && (
-              <span className="inline-block w-1.5 h-3.5 bg-brand-400 ml-0.5 animate-pulse" />
-            )}
-          </div>
+          {JSON_OUTPUT_AGENTS.has(name) ? (
+            state.status === "complete" && state.tokens ? (
+              <div className="bg-slate-950 rounded-lg p-4 max-h-64 overflow-y-auto">
+                {renderStructuredOutput(name, state.tokens) ?? (
+                  <p className="text-sm text-slate-400 leading-relaxed whitespace-pre-wrap">{state.tokens}</p>
+                )}
+              </div>
+            ) : (
+              isActivelyStreaming && (
+                <p className="text-xs text-slate-500 flex items-center gap-2">
+                  <span className="inline-block w-1.5 h-3.5 bg-brand-400 animate-pulse" />
+                  Analyzing findings...
+                </p>
+              )
+            )
+          ) : state.tokens ? (
+            <div className="bg-slate-950 rounded-lg p-4 text-sm text-slate-300 leading-relaxed whitespace-pre-wrap max-h-64 overflow-y-auto">
+              {state.tokens}
+              {isActivelyStreaming && (
+                <span className="inline-block w-1.5 h-3.5 bg-brand-400 ml-0.5 animate-pulse" />
+              )}
+            </div>
+          ) : (
+            isActivelyStreaming && (
+              <span className="inline-block w-1.5 h-3.5 bg-brand-400 animate-pulse" />
+            )
+          )}
         </div>
       )}
     </div>
@@ -180,4 +328,4 @@ function MetricsPill({ metrics }: { metrics: NonNullable<AgentState["metrics"]> 
 }
 
 // useState needs to be imported for the component to work
-import { useState } from "react";
+import { useState, type ReactNode } from "react";

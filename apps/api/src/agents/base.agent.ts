@@ -77,9 +77,28 @@ export abstract class BaseAgent {
 
     let round = 0;
     while (true) {
+      // Whether this round is still allowed to issue a tool call vs. the
+      // forced final round (round >= MAX_TOOL_ROUNDS).
+      const canCallTool = tools.length > 0 && round < MAX_TOOL_ROUNDS;
+      const isFinalToolRound = tools.length > 0 && !canCallTool;
+
+      // On the forced final round, tell the model explicitly that no more
+      // tool calls will be honored — otherwise it may emit yet another
+      // `{"tool_call": ...}` JSON, which gets stripped below and would leave
+      // the agent's result empty.
+      const requestHistory = isFinalToolRound
+        ? [
+            ...currentHistory,
+            {
+              role: "user" as const,
+              content: "Do not call any more tools. Provide your complete final answer now as plain text.",
+            },
+          ]
+        : currentHistory;
+
       const run = completion({
         modelId,
-        history: currentHistory,
+        history: requestHistory,
         stream: true,
         // Always capture thinking so `<think>...</think>` is routed to
         // thinkingDelta/thinkingTrace instead of leaking into the visible
@@ -116,7 +135,7 @@ export abstract class BaseAgent {
       thinkingTrace += loopThinking;
 
       // Check if the model emitted a tool call (and we still have rounds left)
-      const toolCall = tools.length > 0 && round < MAX_TOOL_ROUNDS ? parseToolCall(loopText) : null;
+      const toolCall = canCallTool ? parseToolCall(loopText) : null;
 
       if (toolCall) {
         const { result, durationMs } = await dispatchTool(toolCall.name, toolCall.arguments);
@@ -139,8 +158,11 @@ export abstract class BaseAgent {
         continue;
       }
 
-      // No tool call — this is the final answer
-      text += stripToolCallJson(loopText);
+      // No tool call — this is the final answer. If stripping a stray
+      // tool-call JSON would empty out the whole response, keep the raw
+      // text instead of discarding it entirely.
+      const stripped = stripToolCallJson(loopText);
+      text += stripped || loopText;
       break;
     }
 

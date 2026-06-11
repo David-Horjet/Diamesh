@@ -64,11 +64,11 @@ export default function ClinicalReportView({ report }: { report: ClinicalReport 
         </div>
       </div>
 
-      {/* Patient Education */}
+      {/* Patient Communication Guide */}
       <div className="card border-clinical-700/30">
         <div className="card-header bg-clinical-900/10">
-          <h3 className="text-sm font-semibold text-clinical-500">Patient Education Summary</h3>
-          <p className="text-xs text-slate-500 mt-0.5">Plain-language summary for patient</p>
+          <h3 className="text-sm font-semibold text-clinical-500">Patient Communication Guide</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Guidance for discussing this case with the patient</p>
         </div>
         <div className="card-body">
           <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
