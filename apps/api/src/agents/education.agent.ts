@@ -30,7 +30,6 @@ export class EducationAgent extends BaseAgent {
       modelId,
       modelName: MODEL_DISPLAY.REASONING_SMALL,
       tools: [],
-      captureThinking: false,
       onEvent,
       systemPrompt: `You are a patient educator at an eye clinic. Write clear, compassionate, plain-language content for patients.
 Use simple language (no medical jargon without explanation).

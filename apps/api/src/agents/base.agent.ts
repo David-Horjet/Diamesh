@@ -16,7 +16,10 @@ export interface AgentRunOptions {
   modelId: string;
   modelName: string;
   tools?: PromptTool[];
-  captureThinking?: boolean;
+  // Max tokens to generate. Qwen3 always emits a `<think>...</think>` block
+  // before its actual answer (regardless of `captureThinking`), so this must
+  // cover thinking + the real response or the answer gets truncated to "".
+  maxTokens?: number;
   inferenceMode?: "local" | "delegated";
   onEvent?: ((event: AgentProgressEvent) => void) | undefined;
 }
@@ -39,7 +42,7 @@ export abstract class BaseAgent {
       modelId,
       modelName,
       tools = [],
-      captureThinking = false,
+      maxTokens = 600,
       inferenceMode = "local",
       onEvent,
     } = opts;
@@ -51,9 +54,9 @@ export abstract class BaseAgent {
     // a tool-aware chat template that MedPsy's GGUF does not provide).
     const toolInstructions = tools.length > 0 ? buildToolInstructions(tools) : "";
 
-    // Truncate prompts to stay safely within the 4096 token ctx window.
-    // Rough estimate: 1 token ≈ 4 chars. Reserve 1024 tokens for output.
-    const MAX_PROMPT_CHARS = (4096 - 1024) * 4;
+    // Truncate prompts to stay within the 2048 token ctx window configured in
+    // pool.ts. Rough estimate: 1 token ≈ 4 chars. Reserve `maxTokens` for output.
+    const MAX_PROMPT_CHARS = (2048 - maxTokens) * 4;
     const fullSystem = systemPrompt + toolInstructions;
     const safeSystem = fullSystem.slice(0, Math.floor(MAX_PROMPT_CHARS * 0.45));
     const safeUser = userPrompt.slice(0, Math.floor(MAX_PROMPT_CHARS * 0.55));
@@ -78,9 +81,11 @@ export abstract class BaseAgent {
         modelId,
         history: currentHistory,
         stream: true,
-        captureThinking,
-        // Bound generation: 300 tokens keeps peak memory low on 8GB Intel Mac.
-        generationParams: { predict: 300 },
+        // Always capture thinking so `<think>...</think>` is routed to
+        // thinkingDelta/thinkingTrace instead of leaking into the visible
+        // content stream and `text`/`result.text` (and JSON parsing below).
+        captureThinking: true,
+        generationParams: { predict: maxTokens },
       });
 
       let loopText = "";

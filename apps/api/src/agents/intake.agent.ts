@@ -27,7 +27,6 @@ export class IntakeAgent extends BaseAgent {
       modelName: MODEL_DISPLAY.REASONING_SMALL,
       // No tools — intake just produces structured JSON. RAG retrieval is the
       // knowledge agent's job. Keeping this tool-free guarantees clean JSON output.
-      captureThinking: false,
       onEvent,
       systemPrompt: `You are a clinical intake specialist for an optometry practice. Your role is to:
 1. Review the patient's clinical information

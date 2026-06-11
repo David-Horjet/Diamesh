@@ -49,7 +49,6 @@ export class KnowledgeAgent extends BaseAgent {
       modelId,
       modelName: MODEL_DISPLAY.REASONING_SMALL,
       tools: [],
-      captureThinking: false,
       onEvent,
       systemPrompt: `You are a medical librarian. Given retrieved clinical guidelines,
 extract the 3-5 most relevant bullet points that apply to the patient case described.

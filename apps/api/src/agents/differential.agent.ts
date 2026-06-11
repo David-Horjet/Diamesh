@@ -26,7 +26,6 @@ export class DifferentialAgent extends BaseAgent {
       modelName: MODEL_DISPLAY.REASONING_LARGE,
       // No tools — produces clean structured JSON. ICD-10 codes are verified
       // against the local code database after parsing (see enrichWithIcd10).
-      captureThinking: false,
       onEvent,
       systemPrompt: `You are a clinical specialist generating a differential diagnosis list.
 

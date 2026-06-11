@@ -42,7 +42,7 @@ export async function runPipeline(
     // ── Step 3: Knowledge Retrieval (parallel-safe — uses embeddings model) ─
     const knowledgeResult = await knowledgeAgent.retrieve(caseId, intakeResult, onEvent);
 
-    // ── Step 4: Clinical Reasoning (large reasoner, captureThinking) ────────────
+    // ── Step 4: Clinical Reasoning (large reasoner, extra token budget) ────────
     const reasoningResult = await reasoningAgent.reason(
       clinicalCase,
       intakeResult,
