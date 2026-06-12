@@ -146,7 +146,7 @@ Express API (localhost:3001)
 | `captureThinking: true` | Set on every `completion()` call; persisted to `agent_runs.thinking_trace` via `/api/cases/:id/runs` (empty under `reasoning_budget:0` — see MODEL_NOTES) |
 | `ragIngest()` + `ragSearch()` | Local ophthalmology knowledge base + EmbeddingGemma-300M embeddings |
 | `startQVACProvider()` | P2P delegation — Settings page |
-| `delegate: { fallbackToLocal: true }` | Wired into every completion-model load in `models/pool.ts` — if a peer provider is configured (Settings → Consumer Mode), the 6-agent pipeline delegates inference to it (`inferenceMode: "delegated"` in the audit log/UI) and transparently falls back to local on failure |
+| `delegate: { fallbackToLocal: true }` | Wired into every completion-model load in `models/pool.ts` — if a peer provider is configured (Settings → Consumer Mode), the 6-agent pipeline delegates inference to it (`inferenceMode: "delegated"` in the audit log/UI) and transparently falls back to local on failure. Cross-device tested: connection, key exchange, and remote model load/download all work end-to-end (`p2p_inference_delegated` in the audit log) — see [`docs/MODEL_NOTES.md`](docs/MODEL_NOTES.md) for an SDK-level issue found in the delegated-completion step |
 | `loadModel()` / `unloadModel()` | Smart pool — memory management for 8-16GB devices |
 | Custom JSONL audit log (`apps/api/src/logging/audit.ts`) | Model loads/unloads + per-call TTFT/tokens-per-sec — `/api/audit` |
 

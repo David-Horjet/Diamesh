@@ -140,3 +140,78 @@ If running on an Intel Mac and seeing this crash with `USE_MEDPSY=true`, set
 `USE_MEDPSY=false` in `apps/api/.env` to fall back to Qwen3 (same prompts, no
 code changes needed — `apps/api/src/models/constants.ts` resolves model paths
 and display names from this flag).
+
+## P2P delegated inference — findings (`delegate: { fallbackToLocal: true }`)
+
+Tested cross-device with the M4 (Apple Silicon) as Provider
+(`startQVACProvider()`, Settings → Provider Mode) and the Intel Mac as
+Consumer (Settings → Consumer Mode, pasting the Provider's public key). The
+pipeline's `loadModel()` calls in `apps/api/src/models/pool.ts` pass
+`delegate: { providerPublicKey, timeout: 60_000, fallbackToLocal: true }`.
+
+### Bug 3a — DHT connection fails immediately on a shared mobile hotspot
+
+With both devices on the **same iPhone Personal Hotspot**, the delegated
+`loadModel()` failed after ~5 seconds (not the configured 60s timeout) with
+`fallbackToLocal` silently kicking in. The SDK's
+`ensureRPCConnection`/`waitForOpen` (`@qvac/sdk` `dist/server/bare/delegate-rpc-client.js`)
+rejects immediately on a connection `close`/`error` event with
+`DelegateConnectionFailedError("Connection closed before open (peer
+unreachable or rejected by firewall)")` — consistent with a CGNAT/"hairpin
+NAT" failure: both devices share the hotspot's NAT, which doesn't route a
+peer's DHT-advertised address back to another device behind the same NAT.
+
+**Workaround:** put the two devices on **different networks** (e.g. separate
+home WiFi + the hotspot, or two different WiFi networks) — normal NAT
+traversal between two distinct networks is the case Hyperswarm's DHT is
+designed for, and the connection then succeeds.
+
+### Bug 3b — `modelSrc` must be a portable registry descriptor, not a local path
+
+`MODELS.REASONING_SMALL`/`REASONING_LARGE` under `USE_MEDPSY=true` resolve via
+`medpsyPath()` to an **absolute local filesystem path** (depends on each
+machine's username/clone location). Sending that string as `modelSrc` in a
+delegated request points the Provider at a path that doesn't exist on its
+disk. **Fix:** `apps/api/src/models/constants.ts` now exports
+`DELEGATION_REASONING_MODEL` — the SDK's `registry://` Qwen3-1.7B descriptor
+(`QWEN3_1_7B_INST_Q4`), which any machine resolves/downloads independently.
+`pool.ts` uses this for delegated `REASONING_SMALL`/`REASONING_LARGE` loads
+(vision's `SMOLVLM2_500M` was already a `registry://` URI, so it didn't need
+this).
+
+### Bug 3c — delegated completion fails on the first generation call
+
+With Bug 3a and 3b both resolved (different networks, portable `modelSrc`),
+the delegated `loadModel()` itself **succeeds end-to-end**: the Provider
+downloads and loads `Qwen3-1.7B-Q4_0.gguf` (`model_download_progress: 100`,
+`model_load_complete`, `inferenceMode: "delegated"`, `p2p_inference_delegated`
+recorded in the audit log). This confirms the P2P connection, key exchange,
+and remote model load all work correctly.
+
+The very next call — the pipeline's first `completion()` against that
+delegated `modelId` — fails with:
+
+```
+RPCError: [TextLlm] evalMessageWithTools: failed to decode input tokens
+```
+
+This is a native (`@qvac/llm-llamacpp` addon) error surfaced via
+`handleCompletionStreamDelegated` (`dist/server/rpc/handlers/completion-stream-delegated.js`),
+on the very first `evalMessageWithTools` call for this model — which is the
+KV-cache **prefill** step (`initSystemPromptCache` in
+`dist/server/bare/plugins/llamacpp-completion/ops/completion-stream.js`,
+`{ prefill: true, saveCacheToDisk: true }`). The prompt is small (~375
+tokens against a 4096 `ctx_size`), so this isn't a context-overflow issue.
+
+Note `fallbackToLocal: true` does **not** help here — it only covers
+`loadModel()` failures. By the time this error occurs, the delegated model is
+already loaded and registered; the completion-stream RPC itself errors out,
+and `pool.ts`'s `loadSingle()` has already returned `inferenceMode:
+"delegated"` to the agent.
+
+**Status: unresolved.** Likely a QVAC SDK gap in how a delegated/registered
+`modelId` is handled by the KV-cache-prefill path on the Provider side
+(possibly missing tokenizer/config state that a locally-loaded model has).
+Not reproduced as a local-only issue — `USE_MEDPSY=false` (Qwen3, local, no
+delegation) runs this exact prompt/config correctly on both Intel and Apple
+Silicon. Worth filing with the QVAC team alongside Bugs 1/2.
