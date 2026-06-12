@@ -20,6 +20,14 @@ function medpsyPath(filename: string): string {
 // Runtime catalog constants (the bundled .d.ts omits some, so resolve dynamically)
 const sdkConst = (name: string): string => (sdk as Record<string, unknown>)[name] as string;
 
+// Portable model descriptor for P2P delegation. medpsyPath() resolves to an
+// absolute filesystem path specific to each machine's repo checkout (depends
+// on username/clone location) — sent as-is to a remote provider, it points at
+// a path that doesn't exist on that machine. This SDK registry:// descriptor
+// is resolved/downloaded independently by whichever machine receives it, so
+// delegated REASONING_SMALL/LARGE loads use it regardless of USE_MEDPSY.
+export const DELEGATION_REASONING_MODEL = sdkConst("QWEN3_1_7B_INST_Q4");
+
 /**
  * MODEL SELECTION — On Apple Silicon (current target hardware), MedPsy runs
  * correctly and `USE_MEDPSY=true` is the default.

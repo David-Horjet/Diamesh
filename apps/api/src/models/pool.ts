@@ -1,5 +1,5 @@
 import { loadModel, unloadModel } from "@qvac/sdk";
-import { MODELS, MODEL_SIZE_GB, MODEL_DISPLAY } from "./constants.js";
+import { MODELS, MODEL_SIZE_GB, MODEL_DISPLAY, DELEGATION_REASONING_MODEL } from "./constants.js";
 import { auditLog } from "../logging/audit.js";
 import { getPeerKey, recordDelegationSuccess, recordDelegationFallback } from "../p2p/consumer.js";
 import type { ModelHealthEntry } from "@diamesh/shared";
@@ -72,6 +72,13 @@ async function loadSingle(key: keyof typeof MODELS, extra?: Record<string, unkno
       const peerKey = key === "GTE_LARGE" ? null : getPeerKey();
 
       if (peerKey) {
+        // REASONING_SMALL/LARGE under USE_MEDPSY=true resolve to an absolute
+        // local filesystem path (medpsyPath()) that's specific to this
+        // machine's repo checkout and won't exist on the provider's disk.
+        // Use the portable registry:// Qwen3 descriptor for delegation
+        // instead — SMOLVLM2_500M is already a registry:// URI, so it's fine
+        // as-is.
+        const delegateSrc = key === "REASONING_SMALL" || key === "REASONING_LARGE" ? DELEGATION_REASONING_MODEL : src;
         auditLog({ event: "model_load_start", details: { model: key, device: "delegated" } });
         try {
           // Omit device/gpu_layers — those describe THIS machine, but the
@@ -79,7 +86,7 @@ async function loadSingle(key: keyof typeof MODELS, extra?: Record<string, unkno
           // config (ctx_size, reasoning_budget) plus caller extras (e.g.
           // vision's projectionModelSrc/ctx_size override).
           const modelId = await loadModel({
-            modelSrc: src,
+            modelSrc: delegateSrc,
             modelType,
             modelConfig: { ctx_size: 4096, reasoning_budget: 0, ...extraConfig },
             delegate: { providerPublicKey: peerKey, timeout: 60_000, fallbackToLocal: true },
@@ -93,8 +100,8 @@ async function loadSingle(key: keyof typeof MODELS, extra?: Record<string, unkno
           });
           recordDelegationSuccess(key);
           return { modelId, inferenceMode: "delegated" };
-        } catch {
-          recordDelegationFallback(key, "delegation failed");
+        } catch (err) {
+          recordDelegationFallback(key, err instanceof Error ? err.message : String(err));
           // fall through to local load below
         }
       }
