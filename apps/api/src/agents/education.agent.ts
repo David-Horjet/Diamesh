@@ -18,7 +18,7 @@ export class EducationAgent extends BaseAgent {
     differentialResult: DifferentialResult,
     onEvent?: ((e: AgentProgressEvent) => void) | undefined
   ): Promise<EducationResult> {
-    const modelId = await getReasoningSmall();
+    const { modelId, inferenceMode } = await getReasoningSmall();
 
     const topCondition = differentialResult.differentials[0];
     const actionsList = differentialResult.recommendedActions
@@ -29,6 +29,7 @@ export class EducationAgent extends BaseAgent {
       caseId,
       modelId,
       modelName: MODEL_DISPLAY.REASONING_SMALL,
+      inferenceMode,
       tools: [],
       onEvent,
       systemPrompt: `You are assisting an eye care clinician by preparing a patient-communication briefing.

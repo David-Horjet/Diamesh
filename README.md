@@ -10,15 +10,16 @@ All inference runs entirely on-device using the QVAC SDK. No patient data ever l
 
 ## What It Does
 
-Diamesh assists optometrists and eye clinics by running a 5-agent AI pipeline locally:
+Diamesh assists optometrists and eye clinics by running a 6-agent AI pipeline locally:
 
 1. **Intake Agent** (MedPsy-1.7B) — Parses clinical input, identifies key findings, determines urgency
 2. **Vision Agent** (SmolVLM2-500M) — Analyzes fundus/OCT/slit-lamp images via local multimodal inference
 3. **Knowledge Agent** (MedPsy-1.7B + RAG) — Retrieves relevant ophthalmology guidelines from local vector store
-4. **Reasoning Agent** (MedPsy-4B, with thinking trace) — Performs full clinical reasoning with tool calling
-5. **Education Agent** (MedPsy-1.7B) — Generates plain-language patient education summaries
+4. **Reasoning Agent** (MedPsy-4B, with thinking trace + tool calling) — Performs full clinical reasoning, calling local tools (ICD-10 lookup, risk calculator, RAG search)
+5. **Differential Agent** (MedPsy-4B) — Produces a ranked differential diagnosis list with ICD-10 codes (verified against a local code database)
+6. **Education Agent** (MedPsy-1.7B) — Generates a patient-communication guide for the clinician
 
-Outputs: ranked differential diagnosis with ICD-10 codes, clinical assessment, recommended actions, and patient education content.
+Outputs: ranked differential diagnosis with ICD-10 codes, clinical assessment, recommended actions, and a patient communication guide.
 
 ---
 
@@ -26,11 +27,16 @@ Outputs: ranked differential diagnosis with ICD-10 codes, clinical assessment, r
 
 | Component | Minimum | Tested On |
 |-----------|---------|-----------|
-| RAM | 8 GB | 8 GB |
-| CPU | Intel/AMD x86-64, Apple Silicon | Intel Mac 2017 |
-| GPU | Optional (Metal/Vulkan for speed) | CPU-only |
+| RAM | 8 GB | 16 GB |
+| CPU | Intel/AMD x86-64, Apple Silicon | Apple M4 (10-core: 4P+6E) |
+| GPU | Optional (Metal for speed on Apple Silicon) | Metal (auto-enabled on darwin/arm64) |
 | Node.js | ≥ 22.17.0 | v24.x |
 | Storage | 8 GB free (for models) | — |
+
+> Diamesh auto-detects Apple Silicon (`darwin`/`arm64`) and uses the Metal GPU
+> backend for ~30% faster inference; all other platforms (including Intel Mac)
+> run on CPU due to a known QVAC SDK GPU/OpenCL bug on Intel — see
+> [`docs/MODEL_NOTES.md`](docs/MODEL_NOTES.md).
 
 ---
 
@@ -70,7 +76,7 @@ npm run build --workspace=packages/shared
 npm run rag:ingest
 ```
 
-This downloads the GTE-Large and MedPsy-1.7B models (~2GB) and ingests the ophthalmology guidelines. Takes 3-10 minutes on first run.
+This downloads the EmbeddingGemma-300M and MedPsy-1.7B models (~2GB) and ingests the ophthalmology guidelines. Takes 3-10 minutes on first run.
 
 ### 5. Seed Demo Case (optional)
 
@@ -107,7 +113,7 @@ Open [http://localhost:3000](http://localhost:3000)
 ## Architecture
 
 ```
-Next.js 15 Frontend (localhost:3000)
+Next.js 16 Frontend (localhost:3000)
          │ HTTP + SSE
 Express API (localhost:3001)
          │
@@ -118,13 +124,13 @@ Express API (localhost:3001)
     │  Education                          │
     └────┬────────────────────────────────┘
          │
-    ┌────┴───────────────────────────────────┐
-    │           QVAC MODEL POOL              │
-    │  GTE-Large (always)                    │
-    │  MedPsy-1.7B (always)                 │
-    │  MedPsy-4B (on-demand, swaps in)      │
-    │  SmolVLM2-500M (on-demand, if images) │
-    └────────────────────────────────────────┘
+    ┌──┴────────────────────────────────────────┐
+    │             QVAC MODEL POOL               │
+    │  EmbeddingGemma-300M (always)             │
+    │  MedPsy-1.7B (always)                     │
+    │  MedPsy-4B (on-demand, swaps in)          │
+    │  SmolVLM2-500M (on-demand, if images)     │
+    └────────────────────────────────────────────┘
          │
     SQLite (local only, never synced)
 ```
@@ -136,14 +142,13 @@ Express API (localhost:3001)
 | `completion()` with MedPsy-4B | Clinical Reasoning + Differential agents |
 | `completion()` with MedPsy-1.7B | Intake + Knowledge + Education agents |
 | `completion()` with SmolVLM2 + multimodal attachments | Vision agent |
-| `tools` parameter | All agents (icd10_lookup, drug_interaction_check, search_medical_knowledge, calculate_vision_risk) |
-| `captureThinking: true` | Reasoning agent — full thinking trace displayed in UI |
-| `ragIngest()` + `ragSearch()` | Local ophthalmology knowledge base |
-| `embed()` via GTE-Large | Document embeddings for RAG |
+| `tools` parameter (prompt-based tool calling) | Reasoning agent (icd10_lookup, search_medical_knowledge, calculate_vision_risk) — see [`docs/MODEL_NOTES.md`](docs/MODEL_NOTES.md) for what we found |
+| `captureThinking: true` | Set on every `completion()` call; persisted to `agent_runs.thinking_trace` via `/api/cases/:id/runs` (empty under `reasoning_budget:0` — see MODEL_NOTES) |
+| `ragIngest()` + `ragSearch()` | Local ophthalmology knowledge base + EmbeddingGemma-300M embeddings |
 | `startQVACProvider()` | P2P delegation — Settings page |
 | `delegate: { fallbackToLocal: true }` | Consumer mode — transparent fallback |
-| `loadModel()` / `unloadModel()` | Smart pool — memory management for 8GB |
-| `loggingStream()` + `profiler` | Audit log + metrics dashboard |
+| `loadModel()` / `unloadModel()` | Smart pool — memory management for 8-16GB devices |
+| Custom JSONL audit log (`apps/api/src/logging/audit.ts`) | Model loads/unloads + per-call TTFT/tokens-per-sec — `/api/audit` |
 
 ---
 
@@ -153,7 +158,7 @@ Express API (localhost:3001)
 diamesh/
 ├── apps/
 │   ├── api/          Express + QVAC SDK backend
-│   └── web/          Next.js 15 + Tailwind frontend
+│   └── web/          Next.js 16 + Tailwind frontend
 ├── packages/
 │   └── shared/       Shared TypeScript types
 ├── docker-compose.yml
@@ -165,10 +170,11 @@ diamesh/
 ## Submission Artifacts
 
 - **Demo video**: [YouTube link]
-- **Audit log**: `/api/audit/download` (JSON) — captured during demo run
-- **Hardware**: Intel Mac 2017, 8GB RAM, CPU-only inference
+- **Audit log**: [`docs/demo-audit-log.jsonl`](docs/demo-audit-log.jsonl) — model loads/unloads + per-call TTFT/tokens-per-sec for a full 6-agent run (also downloadable live via `/api/audit/download`)
+- **Hardware**: Apple MacBook Air (M4, 10-core), 16GB RAM, Metal GPU inference
 - **License**: Apache 2.0
 - **Hashtag**: #teamDiamesh
+- **Remote APIs used**: none — see [`REMOTE_APIS.json`](REMOTE_APIS.json)
 
 ---
 

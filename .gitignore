@@ -11,8 +11,10 @@ diamesh.db-shm
 diamesh.db-wal
 logs/
 /models/
+apps/api/uploads/
 .qvac/
 *.gguf
 *.onnx
 coverage/
 node_modules/
+*.tsbuildinfo

@@ -59,7 +59,7 @@ All agents extend `BaseAgent` (`agents/base.agent.ts`) which wraps `completion()
 
 ## Model pool (`apps/api/src/models/pool.ts`)
 
-Manages loading/unloading models to stay within RAM budget. Key constraint baked in: **embedding models and completion models must never be resident in the same worker simultaneously** (QVAC SDK bug — corrupts the completion model). The pool enforces mutual exclusion: loading either kind unloads the other first. All models load with `device: "cpu", gpu_layers: 0` (GPU/OpenCL backend produces garbage tokens on Intel Macs — likely fine on Apple Silicon but config is currently shared).
+Manages loading/unloading models to stay within RAM budget. Key constraint baked in: **embedding models and completion models must never be resident in the same worker simultaneously** (QVAC SDK bug — corrupts the completion model). The pool enforces mutual exclusion: loading either kind unloads the other first. Completion models auto-select `device: "gpu", gpu_layers: 99` (Metal) on Apple Silicon — measured ~30% faster than CPU with correct output — and fall back to `device: "cpu", gpu_layers: 0` on Intel (GPU/OpenCL produces garbage tokens there). Embeddings always stay on CPU.
 
 ## RAG knowledge base (`apps/api/src/rag/`)
 
@@ -84,7 +84,7 @@ Manages loading/unloading models to stay within RAM budget. Key constraint baked
 
 - Full monorepo scaffolding, shared types package
 - API backend: Express routes, DB schema, model pool, audit logging
-- Tool registry (ICD-10 lookup, drug interaction, RAG search, risk calculator) — note: tool-calling was mostly removed from agent prompts since docs say local tool use needs ≥14B param models; `differential.agent.ts` instead does post-hoc `enrichWithIcd10()` verification
+- Tool registry (ICD-10 lookup, drug interaction, RAG search, risk calculator) — prompt-based tool calling (`apps/api/src/tools/prompt-tools.ts`) is wired into the Reasoning agent (icd10_lookup, search_medical_knowledge, calculate_vision_risk; max 3 rounds). `differential.agent.ts` uses no tools — it does post-hoc `enrichWithIcd10()` verification instead
 - RAG pipeline + initial ophthalmology document ingest
 - P2P provider/consumer layer (`apps/api/src/p2p/`)
 - Full 6-agent pipeline — **confirmed working end-to-end on M4 16GB**, returns complete analysis + report

@@ -25,11 +25,11 @@ export class VisionAgent {
 
     onEvent?.({ type: "agent_start", agentName: this.name });
 
-    const { modelId } = await getVisionModel();
+    const { modelId, inferenceMode } = await getVisionModel();
     const results: VisionAnalysisResult[] = [];
 
     for (const image of images) {
-      const result = await this.analyzeOne(caseId, modelId, image, onEvent);
+      const result = await this.analyzeOne(caseId, modelId, inferenceMode, image, onEvent);
       results.push(result);
     }
 
@@ -45,6 +45,7 @@ export class VisionAgent {
   private async analyzeOne(
     caseId: string,
     modelId: string,
+    inferenceMode: "local" | "delegated",
     image: CaseImage,
     onEvent?: (e: AgentProgressEvent) => void
   ): Promise<VisionAnalysisResult> {
@@ -105,7 +106,7 @@ Be specific and use clinical terminology.`;
       thinkingTrace: null,
       toolCallsMade: [],
       resultJson: JSON.stringify({ description: description.trim(), imageId: image.id }),
-      inferenceMode: "local",
+      inferenceMode,
     });
 
     auditInference({
@@ -118,7 +119,7 @@ Be specific and use clinical terminology.`;
       ttft,
       tokensPerSec: tokensOut > 0 ? Math.round((tokensOut / durationMs) * 1000) : 0,
       durationMs,
-      inferenceMode: "local",
+      inferenceMode,
     });
 
     const lines = description.trim().split(". ").filter(Boolean);

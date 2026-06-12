@@ -5,7 +5,7 @@ import { KnowledgeAgent } from "../agents/knowledge.agent.js";
 import { ReasoningAgent } from "../agents/reasoning.agent.js";
 import { DifferentialAgent } from "../agents/differential.agent.js";
 import { EducationAgent } from "../agents/education.agent.js";
-import { getCaseById, updateCaseStatus, insertReport, getReportByCase } from "../db/queries.js";
+import { getCaseById, updateCaseStatus, upsertReport } from "../db/queries.js";
 import { auditLog } from "../logging/audit.js";
 import type { AgentProgressEvent, ClinicalReport, PipelineResult } from "@diamesh/shared";
 
@@ -62,9 +62,8 @@ export async function runPipeline(
       onEvent
     );
 
-    // ── Persist report ──────────────────────────────────────────────────────
-    const existingReport = getReportByCase(caseId);
-    const report: ClinicalReport = existingReport ?? insertReport({
+    // ── Persist report (overwrites any prior report for this case) ─────────
+    const report: ClinicalReport = upsertReport({
       id: uuid(),
       caseId,
       differentials: differentialResult.differentials,

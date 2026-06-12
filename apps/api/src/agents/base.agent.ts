@@ -161,11 +161,18 @@ export abstract class BaseAgent {
         continue;
       }
 
-      // No tool call — this is the final answer. If stripping a stray
-      // tool-call JSON would empty out the whole response, keep the raw
-      // text instead of discarding it entirely.
-      const stripped = stripToolCallJson(loopText);
-      text += stripped || loopText;
+      // No tool call — this is the final answer. With reasoning_budget:0, MedPsy
+      // sometimes streams its whole <think> draft as visible content and then
+      // emits a stray "</think>" before its real answer (the opening <think> is
+      // part of the prefill template, so the SDK never pairs/captures it as
+      // thinking). Keep only what follows the last "</think>" when present.
+      const thinkEnd = loopText.lastIndexOf("</think>");
+      const afterThinking = thinkEnd >= 0 ? loopText.slice(thinkEnd + "</think>".length).trim() : loopText;
+
+      // If stripping a stray tool-call JSON would empty out the whole response,
+      // keep the raw text instead of discarding it entirely.
+      const stripped = stripToolCallJson(afterThinking);
+      text += stripped || afterThinking || loopText;
       break;
     }
 

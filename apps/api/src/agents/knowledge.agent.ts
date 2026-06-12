@@ -41,13 +41,14 @@ export class KnowledgeAgent extends BaseAgent {
     // model in (mutually exclusive with completion models, see pool.ts), which
     // unloads reasoningSmall. Grabbing the modelId before that point yields a
     // stale ID and a MODEL_NOT_FOUND error once the embeddings swap completes.
-    const modelId = await getReasoningSmall();
+    const { modelId, inferenceMode } = await getReasoningSmall();
 
     // Use MedPsy-1.7B to extract the most relevant guidelines from retrieved context
     const result = await this.run({
       caseId,
       modelId,
       modelName: MODEL_DISPLAY.REASONING_SMALL,
+      inferenceMode,
       tools: [],
       onEvent,
       systemPrompt: `You are a medical librarian. Given retrieved clinical guidelines,

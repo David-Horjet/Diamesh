@@ -1,4 +1,3 @@
-import { loadModel } from "@qvac/sdk";
 import { MODELS } from "../models/constants.js";
 import { auditLog } from "../logging/audit.js";
 import type { P2PStatus } from "@diamesh/shared";
@@ -35,50 +34,20 @@ export function getPeerKey(): string | null {
   return state.providerPublicKey;
 }
 
-// Loads a model with delegation if a peer key is configured.
-// Always sets fallbackToLocal: true so the system works offline.
-export async function loadDelegatedModel(
-  modelKey: keyof typeof MODELS,
-  modelConfig?: Record<string, unknown>
-): Promise<{ modelId: string; inferenceMode: "local" | "delegated" }> {
-  const modelSrc = MODELS[modelKey];
-
-  if (state.providerPublicKey) {
-    try {
-      const modelId = await loadModel({
-        modelSrc,
-        modelType: "llamacpp-completion",
-        ...(modelConfig ? { modelConfig } : {}),
-        delegate: {
-          providerPublicKey: state.providerPublicKey,
-          timeout: 60_000,
-          fallbackToLocal: true,
-        },
-      });
-
-      state.requestsDelegated++;
-      auditLog({
-        event: "p2p_inference_delegated",
-        details: { model: modelKey, providerPublicKey: state.providerPublicKey },
-      });
-
-      return { modelId, inferenceMode: "delegated" };
-    } catch {
-      state.fallbacksTriggered++;
-      auditLog({
-        event: "p2p_delegation_fallback",
-        details: { model: modelKey, reason: "delegation failed" },
-      });
-    }
-  }
-
-  const modelId = await loadModel({
-    modelSrc,
-    modelType: "llamacpp-completion",
-    ...(modelConfig ? { modelConfig } : {}),
+// Called by models/pool.ts after a delegated loadModel() succeeds.
+export function recordDelegationSuccess(modelKey: keyof typeof MODELS): void {
+  state.requestsDelegated++;
+  auditLog({
+    event: "p2p_inference_delegated",
+    details: { model: modelKey, providerPublicKey: state.providerPublicKey },
   });
+}
 
-  return { modelId, inferenceMode: "local" };
+// Called by models/pool.ts when a delegated loadModel() throws and we fall
+// back to loading the model locally.
+export function recordDelegationFallback(modelKey: keyof typeof MODELS, reason: string): void {
+  state.fallbacksTriggered++;
+  auditLog({ event: "p2p_delegation_fallback", details: { model: modelKey, reason } });
 }
 
 export function getConsumerStatus(): P2PStatus {
