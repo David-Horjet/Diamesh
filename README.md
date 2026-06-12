@@ -4,7 +4,7 @@
 
 **QVAC Hackathon I — Unleash Edge AI** | Track: General Purpose + Psy Models
 
-All inference runs entirely on-device using the QVAC SDK. No patient data ever leaves the machine.
+All inference runs entirely on-device using the QVAC SDK. No patient data ever leaves the machine. 
 
 ---
 
