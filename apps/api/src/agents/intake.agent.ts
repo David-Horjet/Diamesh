@@ -17,7 +17,7 @@ export class IntakeAgent extends BaseAgent {
     clinicalCase: ClinicalCase,
     onEvent?: ((e: AgentProgressEvent) => void) | undefined
   ): Promise<IntakeResult> {
-    const modelId = await getReasoningSmall();
+    const { modelId, inferenceMode } = await getReasoningSmall();
 
     const caseText = buildCaseText(clinicalCase);
 
@@ -25,9 +25,9 @@ export class IntakeAgent extends BaseAgent {
       caseId: clinicalCase.id,
       modelId,
       modelName: MODEL_DISPLAY.REASONING_SMALL,
+      inferenceMode,
       // No tools — intake just produces structured JSON. RAG retrieval is the
       // knowledge agent's job. Keeping this tool-free guarantees clean JSON output.
-      captureThinking: false,
       onEvent,
       systemPrompt: `You are a clinical intake specialist for an optometry practice. Your role is to:
 1. Review the patient's clinical information

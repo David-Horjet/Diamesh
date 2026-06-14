@@ -1,22 +1,25 @@
 import type { Config } from "tailwindcss";
 
 export default {
+  darkMode: "class",
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
         brand: {
-          50: "#f0f9ff",
-          100: "#e0f2fe",
-          200: "#bae6fd",
-          300: "#7dd3fc",
-          400: "#38bdf8",
-          500: "#0ea5e9",
-          600: "#0284c7",
-          700: "#0369a1",
-          800: "#075985",
-          900: "#0c4a6e",
+          50: "#f0f2ff",
+          100: "#e0e5ff",
+          200: "#c2ccfe",
+          300: "#9babfd",
+          400: "#738afc",
+          500: "#526FFB",
+          600: "#3652f2",
+          700: "#1733e8",
+          800: "#1629b6",
+          900: "#131f86",
+          950: "#0f1557",
         },
+        dark: "#071015",
         clinical: {
           50: "#f0fdf4",
           100: "#dcfce7",
@@ -36,13 +39,14 @@ export default {
         },
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ["var(--font-raleway)", "system-ui", "sans-serif"],
         mono: ["JetBrains Mono", "Fira Code", "monospace"],
       },
       animation: {
         "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
         "fade-in": "fadeIn 0.3s ease-in-out",
         "slide-up": "slideUp 0.3s ease-out",
+        "slide-in-left": "slideInLeft 0.2s ease-out",
       },
       keyframes: {
         fadeIn: {
@@ -52,6 +56,10 @@ export default {
         slideUp: {
           "0%": { transform: "translateY(8px)", opacity: "0" },
           "100%": { transform: "translateY(0)", opacity: "1" },
+        },
+        slideInLeft: {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(0)" },
         },
       },
     },

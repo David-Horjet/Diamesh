@@ -46,12 +46,15 @@ You have access to the following tools:
 
 ${toolDescriptions}
 
-To use a tool, respond with ONLY a JSON object on its own line in this exact format:
+To use a tool, respond with ONLY a JSON object on its own line in this exact format
+(and nothing else in that response):
 {"tool_call": {"name": "tool_name", "arguments": {"param": "value"}}}
 
+For example, to verify the ICD-10 code for diabetic macular edema:
+{"tool_call": {"name": "icd10_lookup", "arguments": {"condition": "diabetic macular edema"}}}
+
 After you receive the tool result, continue your analysis. You may call tools multiple times.
-When you have everything you need, provide your final answer WITHOUT any tool_call JSON.
-If you do not need any tools, just answer directly.`;
+When you have everything you need, provide your final answer WITHOUT any tool_call JSON.`;
 }
 
 /**

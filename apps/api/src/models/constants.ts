@@ -20,18 +20,22 @@ function medpsyPath(filename: string): string {
 // Runtime catalog constants (the bundled .d.ts omits some, so resolve dynamically)
 const sdkConst = (name: string): string => (sdk as Record<string, unknown>)[name] as string;
 
+// Portable model descriptor for P2P delegation. medpsyPath() resolves to an
+// absolute filesystem path specific to each machine's repo checkout (depends
+// on username/clone location) — sent as-is to a remote provider, it points at
+// a path that doesn't exist on that machine. This SDK registry:// descriptor
+// is resolved/downloaded independently by whichever machine receives it, so
+// delegated REASONING_SMALL/LARGE loads use it regardless of USE_MEDPSY.
+export const DELEGATION_REASONING_MODEL = sdkConst("QWEN3_1_7B_INST_Q4");
+
 /**
- * MODEL SELECTION — Known QVAC SDK bug on Intel Mac (darwin-x64, @qvac/sdk 0.12.1):
+ * MODEL SELECTION — On Apple Silicon (current target hardware), MedPsy runs
+ * correctly and `USE_MEDPSY=true` is the default.
  *
- *   1. The default GPU/OpenCL backend produces garbage tokens for ALL models
- *      (including QVAC's own catalog Qwen3). Fixed by forcing device:"cpu".
- *   2. On the CPU backend, the MedPsy GGUF specifically SIGSEGVs after ~50
- *      generated tokens, while the identical-architecture Qwen3-1.7B runs fine.
- *
- * Until the SDK bug is fixed (or running on Apple Silicon), we run on Qwen3,
- * which is the closest open equivalent and works correctly on CPU. MedPsy stays
- * wired as the *intended* clinical model — flip USE_MEDPSY=true to switch back
- * with zero code changes once inference is fixed on the target hardware.
+ * On Intel Mac (darwin-x64, @qvac/sdk 0.12.1) we previously hit a known QVAC
+ * SDK bug where the MedPsy GGUF SIGSEGVs after ~50 generated tokens on CPU
+ * (while the identical-architecture Qwen3-1.7B runs fine). Set
+ * USE_MEDPSY=false there to fall back to Qwen3 with zero code changes.
  *
  * See docs/MODEL_NOTES.md for the full repro and the bug report sent to QVAC.
  */

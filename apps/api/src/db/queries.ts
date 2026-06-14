@@ -162,7 +162,9 @@ export function getAgentRunsByCase(caseId: string): AgentRun[] {
 
 // ─── Clinical Reports ─────────────────────────────────────────────────────────
 
-export function insertReport(report: Omit<ClinicalReport, "createdAt">): ClinicalReport {
+// Inserts a new report, or overwrites the existing one for this case (re-running
+// analysis on a case must replace its report, not silently keep the stale one).
+export function upsertReport(report: Omit<ClinicalReport, "createdAt">): ClinicalReport {
   const db = getDb();
   const now = new Date().toISOString();
   db.prepare(`
@@ -170,6 +172,14 @@ export function insertReport(report: Omit<ClinicalReport, "createdAt">): Clinica
       (id, case_id, differentials_json, assessment, recommended_actions,
        education_content, disclaimer, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(case_id) DO UPDATE SET
+      id = excluded.id,
+      differentials_json = excluded.differentials_json,
+      assessment = excluded.assessment,
+      recommended_actions = excluded.recommended_actions,
+      education_content = excluded.education_content,
+      disclaimer = excluded.disclaimer,
+      created_at = excluded.created_at
   `).run(
     report.id,
     report.caseId,

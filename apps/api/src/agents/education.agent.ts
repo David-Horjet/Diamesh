@@ -18,7 +18,7 @@ export class EducationAgent extends BaseAgent {
     differentialResult: DifferentialResult,
     onEvent?: ((e: AgentProgressEvent) => void) | undefined
   ): Promise<EducationResult> {
-    const modelId = await getReasoningSmall();
+    const { modelId, inferenceMode } = await getReasoningSmall();
 
     const topCondition = differentialResult.differentials[0];
     const actionsList = differentialResult.recommendedActions
@@ -29,27 +29,34 @@ export class EducationAgent extends BaseAgent {
       caseId,
       modelId,
       modelName: MODEL_DISPLAY.REASONING_SMALL,
+      inferenceMode,
       tools: [],
-      captureThinking: false,
       onEvent,
-      systemPrompt: `You are a patient educator at an eye clinic. Write clear, compassionate, plain-language content for patients.
-Use simple language (no medical jargon without explanation).
-Be reassuring but honest. Do not alarm the patient unnecessarily.
-Never provide specific treatment recommendations — only explain what to expect and why follow-up matters.`,
+      systemPrompt: `You are assisting an eye care clinician by preparing a patient-communication briefing.
 
-      userPrompt: `Create a patient education summary for ${patientName}.
+This is guidance FOR THE CLINICIAN on how to talk to the patient — it is NOT a
+message to be read by the patient directly. Write in the second person
+addressed to the clinician (e.g. "Explain to the patient that...",
+"Reassure them that...", "Advise the patient to..."). Never address the
+patient directly as "you".
+
+Use clear, jargon-light phrasing the clinician can adapt in conversation.
+Be reassuring but honest, and do not suggest alarming the patient unnecessarily.
+Do not invent treatment recommendations beyond the next steps provided.`,
+
+      userPrompt: `Prepare a patient-communication briefing for the clinician regarding ${patientName}.
 
 Primary finding of concern: ${topCondition?.condition ?? "Ophthalmic condition requiring follow-up"}
-${topCondition?.rationale ? `Brief explanation: ${topCondition.rationale}` : ""}
+${topCondition?.rationale ? `Clinical rationale: ${topCondition.rationale}` : ""}
 
-Recommended next steps from your care team:
+Recommended next steps:
 ${actionsList}
 
-Write a patient-friendly explanation (3-4 paragraphs) covering:
-1. What was found and why it matters (in plain language)
-2. What the recommended next steps mean for the patient
-3. What signs/symptoms should prompt immediate re-attendance
-4. Encouragement and emphasis on the importance of follow-up`,
+Write guidance for the clinician (3-4 short sections) covering:
+1. How to explain this finding to the patient in plain language
+2. How to frame the recommended next steps so the patient understands their importance
+3. Warning signs/symptoms to tell the patient to watch for, and to seek immediate care if they occur
+4. Reassurance points to include so the patient doesn't feel unduly alarmed`,
     });
 
     return {

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Disclosure of every remote network call made by Diamesh, per QVAC Hackathon I submission requirements. All clinical AI inference (completion, RAG, embeddings, vision, tool calling) runs 100% on-device via @qvac/sdk and is NOT listed here. No patient/case data is ever sent to any remote endpoint.",
+  "remoteCalls": [
+    {
+      "name": "Model weight downloads (one-time setup)",
+      "trigger": "npm run models:download (apps/api/scripts/download-models.sh)",
+      "hosts": [
+        "huggingface.co/qvac/MedPsy-1.7B-GGUF",
+        "huggingface.co/qvac/MedPsy-4B-GGUF",
+        "huggingface.co/unsloth/embeddinggemma-300m-GGUF"
+      ],
+      "purpose": "Download GGUF model weight files to local disk (apps/api/models/) so all inference can run offline afterwards.",
+      "dataSent": "None (HTTP GET only, no patient/case data).",
+      "frequency": "One-time, manual, before first run."
+    },
+    {
+      "name": "Vision model weights (QVAC registry)",
+      "trigger": "First call to getVisionModel() (apps/api/src/models/pool.ts) when a case includes images",
+      "hosts": [
+        "huggingface.co/ggml-org/SmolVLM2-500M-Video-Instruct-GGUF"
+      ],
+      "purpose": "QVAC SDK resolves the registry://hf/... model source and downloads+caches the SmolVLM2-500M vision model and its projection model on first use.",
+      "dataSent": "None (model download only, no patient/case data).",
+      "frequency": "One-time per machine; cached locally afterwards."
+    },
+    {
+      "name": "QVAC P2P delegation (optional)",
+      "trigger": "Settings page — provider mode (startQVACProvider) or consumer mode (P2P_PEER_PUBLIC_KEY configured)",
+      "hosts": [
+        "QVAC P2P network (peer-to-peer, no fixed host — peers connect via public key)"
+      ],
+      "purpose": "Optional QVAC SDK feature allowing a peer device to delegate inference to another local device the user controls. Off by default; requires explicit configuration of a peer public key. Always falls back to local inference (delegate: { fallbackToLocal: true }).",
+      "dataSent": "If enabled, prompts/inference requests are sent to the user-configured peer device only (not a third-party cloud service).",
+      "frequency": "Only when explicitly enabled by the user in Settings."
+    }
+  ],
+  "cloudAIProviders": "none"
+}

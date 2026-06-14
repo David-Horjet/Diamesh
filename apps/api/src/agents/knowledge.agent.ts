@@ -19,8 +19,6 @@ export class KnowledgeAgent extends BaseAgent {
     intakeResult: IntakeResult,
     onEvent?: ((e: AgentProgressEvent) => void) | undefined
   ): Promise<KnowledgeResult> {
-    const modelId = await getReasoningSmall();
-
     // Search RAG for each suggested term and combine
     const allResults = await Promise.all(
       intakeResult.suggestedSearchTerms.slice(0, 3).map((term) =>
@@ -39,13 +37,19 @@ export class KnowledgeAgent extends BaseAgent {
 
     const retrievedContext = formatRAGContext(unique.slice(0, 5));
 
+    // Fetch AFTER the RAG search: searchKnowledgeBase() swaps the embeddings
+    // model in (mutually exclusive with completion models, see pool.ts), which
+    // unloads reasoningSmall. Grabbing the modelId before that point yields a
+    // stale ID and a MODEL_NOT_FOUND error once the embeddings swap completes.
+    const { modelId, inferenceMode } = await getReasoningSmall();
+
     // Use MedPsy-1.7B to extract the most relevant guidelines from retrieved context
     const result = await this.run({
       caseId,
       modelId,
       modelName: MODEL_DISPLAY.REASONING_SMALL,
+      inferenceMode,
       tools: [],
-      captureThinking: false,
       onEvent,
       systemPrompt: `You are a medical librarian. Given retrieved clinical guidelines,
 extract the 3-5 most relevant bullet points that apply to the patient case described.

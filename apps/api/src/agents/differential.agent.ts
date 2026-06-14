@@ -18,15 +18,23 @@ export class DifferentialAgent extends BaseAgent {
     reasoningResult: ReasoningResult,
     onEvent?: ((e: AgentProgressEvent) => void) | undefined
   ): Promise<DifferentialResult> {
-    const modelId = await getReasoningLarge();
+    const { modelId, inferenceMode } = await getReasoningLarge();
 
     const result = await this.run({
       caseId,
       modelId,
       modelName: MODEL_DISPLAY.REASONING_LARGE,
+      inferenceMode,
       // No tools — produces clean structured JSON. ICD-10 codes are verified
       // against the local code database after parsing (see enrichWithIcd10).
-      captureThinking: false,
+      // Even with reasoning_budget:0 this model streams a visible <think>
+      // draft (stripped by base.agent.ts) before the JSON, and that draft's
+      // length varies a lot run to run — 1400 was enough most of the time but
+      // left as little as ~300 tokens for the JSON itself, truncating it
+      // mid-array. 2200 gives the JSON room to complete even after a long
+      // think trace; repairTruncatedJson() below is a second line of defense
+      // if it's still cut off.
+      maxTokens: 2200,
       onEvent,
       systemPrompt: `You are a clinical specialist generating a differential diagnosis list.
 
@@ -53,20 +61,24 @@ Rules:
 - List 3-5 differentials, ranked by probability
 - probability must be: "high", "medium", or "low"
 - Include your best-guess ICD-10 code for each condition
-- recommendedActions: 3-6 concrete next steps (investigations, referrals, treatments)`,
+- rationale: exactly 1 concise sentence
+- recommendedActions: 3-4 concrete next steps (investigations, referrals, treatments)`,
 
       userPrompt: `Based on this clinical assessment, generate the differential diagnosis list with ICD-10 codes and recommended actions:
 
 ${reasoningResult.clinicalAssessment}`,
     });
 
-    try {
-      const jsonMatch = result.text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
+    const jsonMatch = result.text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
         const parsed = JSON.parse(jsonMatch[0]) as DifferentialResult;
         return enrichWithIcd10(parsed);
+      } catch {
+        const repaired = repairTruncatedJson(jsonMatch[0]);
+        if (repaired) return enrichWithIcd10(repaired);
       }
-    } catch { /* fall through */ }
+    }
 
     return {
       differentials: [{
@@ -79,6 +91,57 @@ ${reasoningResult.clinicalAssessment}`,
       recommendedActions: ["Consult with supervising clinician", "Full ophthalmic examination recommended"],
     };
   }
+}
+
+// Salvage a result from JSON that got cut off mid-array (hit maxTokens before
+// the model finished). Walks the "differentials" array brace-by-brace, keeping
+// only fully-closed objects, and recovers "recommendedActions" if it's also
+// complete.
+function repairTruncatedJson(raw: string): DifferentialResult | null {
+  const arrayKey = raw.indexOf('"differentials"');
+  if (arrayKey < 0) return null;
+  const bracketStart = raw.indexOf("[", arrayKey);
+  if (bracketStart < 0) return null;
+
+  const items: string[] = [];
+  let depth = 0;
+  let itemStart = -1;
+  for (let i = bracketStart + 1; i < raw.length; i++) {
+    const ch = raw[i];
+    if (ch === "{") {
+      if (depth === 0) itemStart = i;
+      depth++;
+    } else if (ch === "}") {
+      depth--;
+      if (depth === 0 && itemStart >= 0) {
+        items.push(raw.slice(itemStart, i + 1));
+        itemStart = -1;
+      }
+    } else if (ch === "]" && depth === 0) {
+      break;
+    }
+  }
+
+  const differentials: Differential[] = [];
+  for (const item of items) {
+    try {
+      differentials.push(JSON.parse(item) as Differential);
+    } catch { /* skip malformed item */ }
+  }
+  if (differentials.length === 0) return null;
+
+  let recommendedActions: string[] = [];
+  const actionsMatch = raw.match(/"recommendedActions"\s*:\s*(\[[\s\S]*?\])/);
+  if (actionsMatch?.[1]) {
+    try {
+      recommendedActions = JSON.parse(actionsMatch[1]) as string[];
+    } catch { /* ignore */ }
+  }
+  if (recommendedActions.length === 0) {
+    recommendedActions = ["Consult with supervising clinician", "Full ophthalmic examination recommended"];
+  }
+
+  return { differentials, recommendedActions };
 }
 
 // Verify/correct each differential's ICD-10 code against the local code database.

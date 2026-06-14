@@ -24,7 +24,7 @@ export class ReasoningAgent extends BaseAgent {
     visionResults: VisionAnalysisResult[],
     onEvent?: ((e: AgentProgressEvent) => void) | undefined
   ): Promise<ReasoningResult> {
-    const modelId = await getReasoningLarge();
+    const { modelId, inferenceMode } = await getReasoningLarge();
 
     const visionContext =
       visionResults.length > 0
@@ -40,8 +40,12 @@ export class ReasoningAgent extends BaseAgent {
       modelId,
       modelName: MODEL_DISPLAY.REASONING_LARGE,
       tools: REASONING_TOOLS,
-      captureThinking: true,
-      inferenceMode: "local",
+      // Reasoning naturally produces a longer <think> block (captured into
+      // thinkingTrace) plus a multi-section structured assessment, on top of
+      // tool-call rounds — give it more headroom than the default so the
+      // actual answer isn't truncated.
+      maxTokens: 1400,
+      inferenceMode,
       onEvent,
       systemPrompt: `You are an experienced ophthalmologist providing clinical decision support.
 
@@ -49,7 +53,9 @@ IMPORTANT DISCLAIMER: This is an educational and research tool only. All assessm
 
 Your task:
 1. Review all available clinical information
-2. Use available tools to look up relevant ICD-10 codes and risk calculations
+2. You MUST call the icd10_lookup tool at least once, to verify the ICD-10 code
+   for your leading diagnosis, before writing your assessment. Use
+   calculate_vision_risk and search_medical_knowledge if they would help too.
 3. Search the knowledge base for relevant guidelines
 4. Provide a thorough clinical assessment
 
@@ -59,7 +65,13 @@ Format your response as a structured clinical assessment covering:
 - Most likely diagnoses with supporting evidence
 - Conditions to rule out
 - Recommended investigations
-- Management considerations`,
+- Management considerations
+
+CRITICAL: Write the final response as a polished clinical note, not a stream of
+consciousness. Do not narrate your thought process (no "We are given...", "We need
+to...", "Let's...", "Now, let's call..."), and do not mention tools or function names.
+Begin directly with "## Clinical Summary" and write in a professional clinical tone, as
+if documenting in a patient's chart.`,
 
       userPrompt,
     });

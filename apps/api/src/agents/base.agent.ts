@@ -16,7 +16,10 @@ export interface AgentRunOptions {
   modelId: string;
   modelName: string;
   tools?: PromptTool[];
-  captureThinking?: boolean;
+  // Max tokens to generate. Qwen3 always emits a `<think>...</think>` block
+  // before its actual answer (regardless of `captureThinking`), so this must
+  // cover thinking + the real response or the answer gets truncated to "".
+  maxTokens?: number;
   inferenceMode?: "local" | "delegated";
   onEvent?: ((event: AgentProgressEvent) => void) | undefined;
 }
@@ -39,7 +42,7 @@ export abstract class BaseAgent {
       modelId,
       modelName,
       tools = [],
-      captureThinking = false,
+      maxTokens = 1000,
       inferenceMode = "local",
       onEvent,
     } = opts;
@@ -51,9 +54,9 @@ export abstract class BaseAgent {
     // a tool-aware chat template that MedPsy's GGUF does not provide).
     const toolInstructions = tools.length > 0 ? buildToolInstructions(tools) : "";
 
-    // Truncate prompts to stay safely within the 4096 token ctx window.
-    // Rough estimate: 1 token ≈ 4 chars. Reserve 1024 tokens for output.
-    const MAX_PROMPT_CHARS = (4096 - 1024) * 4;
+    // Truncate prompts to stay within the 4096 token ctx window configured in
+    // pool.ts. Rough estimate: 1 token ≈ 4 chars. Reserve `maxTokens` for output.
+    const MAX_PROMPT_CHARS = (4096 - maxTokens) * 4;
     const fullSystem = systemPrompt + toolInstructions;
     const safeSystem = fullSystem.slice(0, Math.floor(MAX_PROMPT_CHARS * 0.45));
     const safeUser = userPrompt.slice(0, Math.floor(MAX_PROMPT_CHARS * 0.55));
@@ -74,13 +77,37 @@ export abstract class BaseAgent {
 
     let round = 0;
     while (true) {
+      // Whether this round is still allowed to issue a tool call vs. the
+      // forced final round (round >= MAX_TOOL_ROUNDS).
+      const canCallTool = tools.length > 0 && round < MAX_TOOL_ROUNDS;
+      const isFinalToolRound = tools.length > 0 && !canCallTool;
+
+      // On the forced final round, tell the model explicitly that no more
+      // tool calls will be honored — otherwise it may emit yet another
+      // `{"tool_call": ...}` JSON (stripped below, leaving an empty result),
+      // or simply paste back the last tool's raw output instead of writing
+      // up its own findings.
+      const requestHistory = isFinalToolRound
+        ? [
+            ...currentHistory,
+            {
+              role: "user" as const,
+              content:
+                "Do not call any more tools, and do not copy or repeat any tool output verbatim. " +
+                "Using everything you've gathered, write your complete final answer now in your own words, as plain text.",
+            },
+          ]
+        : currentHistory;
+
       const run = completion({
         modelId,
-        history: currentHistory,
+        history: requestHistory,
         stream: true,
-        captureThinking,
-        // Bound generation: 300 tokens keeps peak memory low on 8GB Intel Mac.
-        generationParams: { predict: 300 },
+        // Always capture thinking so `<think>...</think>` is routed to
+        // thinkingDelta/thinkingTrace instead of leaking into the visible
+        // content stream and `text`/`result.text` (and JSON parsing below).
+        captureThinking: true,
+        generationParams: { predict: maxTokens },
       });
 
       let loopText = "";
@@ -111,7 +138,7 @@ export abstract class BaseAgent {
       thinkingTrace += loopThinking;
 
       // Check if the model emitted a tool call (and we still have rounds left)
-      const toolCall = tools.length > 0 && round < MAX_TOOL_ROUNDS ? parseToolCall(loopText) : null;
+      const toolCall = canCallTool ? parseToolCall(loopText) : null;
 
       if (toolCall) {
         const { result, durationMs } = await dispatchTool(toolCall.name, toolCall.arguments);
@@ -134,8 +161,18 @@ export abstract class BaseAgent {
         continue;
       }
 
-      // No tool call — this is the final answer
-      text += stripToolCallJson(loopText);
+      // No tool call — this is the final answer. With reasoning_budget:0, MedPsy
+      // sometimes streams its whole <think> draft as visible content and then
+      // emits a stray "</think>" before its real answer (the opening <think> is
+      // part of the prefill template, so the SDK never pairs/captures it as
+      // thinking). Keep only what follows the last "</think>" when present.
+      const thinkEnd = loopText.lastIndexOf("</think>");
+      const afterThinking = thinkEnd >= 0 ? loopText.slice(thinkEnd + "</think>".length).trim() : loopText;
+
+      // If stripping a stray tool-call JSON would empty out the whole response,
+      // keep the raw text instead of discarding it entirely.
+      const stripped = stripToolCallJson(afterThinking);
+      text += stripped || afterThinking || loopText;
       break;
     }
 
