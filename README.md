@@ -4,7 +4,7 @@
 
 **QVAC Hackathon I — Unleash Edge AI** | Track: General Purpose + Psy Models
 
-All inference runs entirely on-device using the QVAC SDK. No patient data ever leaves the machine.
+All inference runs entirely on-device using the QVAC SDK. No patient data ever leaves the machine. 
 
 ---
 
@@ -52,8 +52,8 @@ npm --version   # must be >= 10.9.0
 ### 1. Clone and Install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/diamesh.git
-cd diamesh
+git clone https://github.com/David-Horjet/Diamesh.git
+cd Diamesh
 npm install
 ```
 
@@ -70,21 +70,29 @@ cp .env.example apps/api/.env
 npm run build --workspace=packages/shared
 ```
 
-### 4. Ingest Knowledge Base (first run only)
+### 4. Download MedPsy Models (first run only)
+
+```bash
+npm run models:download
+```
+
+This downloads the MedPsy-1.7B and MedPsy-4B GGUF model weights (~5GB) into `apps/api/models/`. Takes 5-15 minutes depending on your connection. Only needed once — models are cached locally afterwards.
+
+### 5. Ingest Knowledge Base (first run only)
 
 ```bash
 npm run rag:ingest
 ```
 
-This downloads the EmbeddingGemma-300M and MedPsy-1.7B models (~2GB) and ingests the ophthalmology guidelines. Takes 3-10 minutes on first run.
+This loads EmbeddingGemma-300M and ingests the ophthalmology guidelines into the local vector store. Takes 2-5 minutes on first run.
 
-### 5. Seed Demo Case (optional)
+### 7. Seed Demo Case (optional)
 
 ```bash
 npm run db:seed --workspace=apps/api
 ```
 
-### 6. Start Development Servers
+### 8. Start Development Servers
 
 ```bash
 # Terminal 1 — API backend
@@ -169,7 +177,7 @@ diamesh/
 
 ## Submission Artifacts
 
-- **Demo video**: [YouTube link]
+- **Demo video**: [https://youtu.be/HXhb-YWfmHg?si=NtMZB0dyLFisAoi8](https://youtu.be/HXhb-YWfmHg?si=NtMZB0dyLFisAoi8)
 - **Audit log**: [`docs/demo-audit-log.jsonl`](docs/demo-audit-log.jsonl) — model loads/unloads + per-call TTFT/tokens-per-sec for a full 6-agent run (also downloadable live via `/api/audit/download`)
 - **Hardware**: Apple MacBook Air (M4, 10-core), 16GB RAM, Metal GPU inference
 - **License**: Apache 2.0
