@@ -7,6 +7,7 @@ import type {
   ClinicalReport,
   Differential,
   CreateCaseInput,
+  UpdateCaseInput,
 } from "@diamesh/shared";
 import type { AgentRun, ToolCallRecord } from "@diamesh/shared";
 
@@ -42,8 +43,8 @@ export function createCase(input: CreateCaseInput): ClinicalCase {
   db.prepare(`
     INSERT INTO cases
       (id, patient_id, chief_complaint, clinical_notes, va_od, va_os,
-       refraction_od, refraction_os, ocular_findings, status, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+       refraction_od, refraction_os, ocular_findings, status, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
   `).run(
     id,
     patient.id,
@@ -54,6 +55,7 @@ export function createCase(input: CreateCaseInput): ClinicalCase {
     input.refractionOd ?? null,
     input.refractionOs ?? null,
     input.ocularFindings ?? null,
+    now,
     now
   );
 
@@ -69,6 +71,7 @@ export function createCase(input: CreateCaseInput): ClinicalCase {
     ocularFindings: input.ocularFindings ?? null,
     status: "pending",
     createdAt: now,
+    updatedAt: now,
     patient,
   };
 }
@@ -83,7 +86,30 @@ export function getCaseById(id: string): ClinicalCase | null {
   const images = db
     .prepare("SELECT * FROM case_images WHERE case_id = ?")
     .all(row.id) as RawImage[];
-  return { ...mapCase(row), patient: patient ? mapPatient(patient) : undefined, images: images.map(mapImage) };
+  return {
+    ...mapCase(row),
+    reportStale: isReportStale(row.id),
+    patient: patient ? mapPatient(patient) : undefined,
+    images: images.map(mapImage),
+  };
+}
+
+/**
+ * A report is stale when the case was edited after the report was written.
+ * Derived from timestamps rather than a stored flag so it can never drift out
+ * of sync with the data.
+ */
+function isReportStale(caseId: string): boolean {
+  const row = getDb()
+    .prepare(`
+      SELECT c.updated_at AS case_updated, r.created_at AS report_created
+      FROM cases c
+      JOIN clinical_reports r ON r.case_id = c.id
+      WHERE c.id = ?
+    `)
+    .get(caseId) as { case_updated: string | null; report_created: string } | undefined;
+  if (!row?.case_updated) return false;
+  return new Date(row.case_updated).getTime() > new Date(row.report_created).getTime();
 }
 
 export function listCases(limit = 20, offset = 0): ClinicalCase[] {
@@ -101,6 +127,69 @@ export function listCases(limit = 20, offset = 0): ClinicalCase[] {
 
 export function updateCaseStatus(id: string, status: ClinicalCase["status"]): void {
   getDb().prepare("UPDATE cases SET status = ? WHERE id = ?").run(status, id);
+}
+
+// Column per editable field. Patient name/dob live on `patients`, so they are
+// handled separately below.
+const CASE_FIELD_COLUMNS: Record<string, string> = {
+  chiefComplaint: "chief_complaint",
+  clinicalNotes: "clinical_notes",
+  vaOd: "va_od",
+  vaOs: "va_os",
+  refractionOd: "refraction_od",
+  refractionOs: "refraction_os",
+  ocularFindings: "ocular_findings",
+};
+
+/**
+ * Patch a case's clinical fields. Only keys actually present in `input` are
+ * written, so an edit form that omits a field leaves it untouched rather than
+ * blanking it. Always bumps updated_at, which is what marks an existing report
+ * stale (see getCaseById).
+ */
+export function updateCase(id: string, input: UpdateCaseInput): ClinicalCase | null {
+  const db = getDb();
+  const existing = db.prepare("SELECT * FROM cases WHERE id = ?").get(id) as RawCase | undefined;
+  if (!existing) return null;
+
+  const sets: string[] = [];
+  const values: (string | null)[] = [];
+  for (const [key, column] of Object.entries(CASE_FIELD_COLUMNS)) {
+    const value = input[key as keyof UpdateCaseInput];
+    if (value === undefined) continue;
+    sets.push(`${column} = ?`);
+    values.push(value === "" ? null : value);
+  }
+
+  const now = new Date().toISOString();
+  sets.push("updated_at = ?");
+  values.push(now);
+
+  db.prepare(`UPDATE cases SET ${sets.join(", ")} WHERE id = ?`).run(...values, id);
+
+  if (input.patientName !== undefined || input.patientDob !== undefined) {
+    const patientSets: string[] = [];
+    const patientValues: (string | null)[] = [];
+    if (input.patientName !== undefined) {
+      patientSets.push("name = ?");
+      patientValues.push(input.patientName);
+    }
+    if (input.patientDob !== undefined) {
+      patientSets.push("dob = ?");
+      patientValues.push(input.patientDob === "" ? null : input.patientDob);
+    }
+    db.prepare(`UPDATE patients SET ${patientSets.join(", ")} WHERE id = ?`)
+      .run(...patientValues, existing.patient_id);
+  }
+
+  return getCaseById(id);
+}
+
+/** Bump updated_at without changing fields — used when images change. */
+export function touchCase(id: string): void {
+  getDb()
+    .prepare("UPDATE cases SET updated_at = ? WHERE id = ?")
+    .run(new Date().toISOString(), id);
 }
 
 // ─── Case Images ──────────────────────────────────────────────────────────────
@@ -123,6 +212,23 @@ export function updateImageVisionResult(id: string, result: string): void {
   getDb()
     .prepare("UPDATE case_images SET vision_analysis_result = ? WHERE id = ?")
     .run(result, id);
+}
+
+/**
+ * Remove an image from a case. Returns its file path so the caller can delete
+ * the file from disk — the DB row and the upload are removed together, and
+ * returning the path keeps filesystem access out of the query layer.
+ */
+export function deleteCaseImage(caseId: string, imageId: string): { filePath: string } | null {
+  const db = getDb();
+  const row = db
+    .prepare("SELECT * FROM case_images WHERE id = ? AND case_id = ?")
+    .get(imageId, caseId) as RawImage | undefined;
+  if (!row) return null;
+
+  db.prepare("DELETE FROM case_images WHERE id = ?").run(imageId);
+  touchCase(caseId);
+  return { filePath: row.file_path };
 }
 
 // ─── Agent Runs ───────────────────────────────────────────────────────────────
@@ -227,7 +333,8 @@ interface RawPatient { id: string; name: string; dob: string | null; created_at:
 interface RawCase {
   id: string; patient_id: string; chief_complaint: string; clinical_notes: string | null;
   va_od: string | null; va_os: string | null; refraction_od: string | null;
-  refraction_os: string | null; ocular_findings: string | null; status: string; created_at: string;
+  refraction_os: string | null; ocular_findings: string | null; status: string;
+  created_at: string; updated_at: string | null;
 }
 interface RawImage {
   id: string; case_id: string; image_type: string; file_path: string;
@@ -254,6 +361,7 @@ function mapCase(r: RawCase): ClinicalCase {
     refractionOd: r.refraction_od, refractionOs: r.refraction_os,
     ocularFindings: r.ocular_findings, status: r.status as ClinicalCase["status"],
     createdAt: r.created_at,
+    updatedAt: r.updated_at ?? r.created_at,
   };
 }
 function mapImage(r: RawImage): CaseImage {

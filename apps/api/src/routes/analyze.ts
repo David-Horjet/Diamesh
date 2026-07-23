@@ -30,7 +30,13 @@ router.post("/:caseId", async (req, res) => {
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders();
 
+  // Track whichever agent is currently mid-run so a failure can be reported
+  // against the agent that actually failed. Without this the client leaves the
+  // failing agent spinning forever and blames whichever agent is hardcoded.
+  let currentAgent: AgentProgressEvent["agentName"] = "intake";
+
   const send = (event: AgentProgressEvent) => {
+    if (event.type === "agent_start") currentAgent = event.agentName;
     res.write(`data: ${JSON.stringify(event)}\n\n`);
   };
 
@@ -50,7 +56,7 @@ router.post("/:caseId", async (req, res) => {
   } catch (err) {
     send({
       type: "agent_error",
-      agentName: "intake",
+      agentName: currentAgent,
       error: String(err),
     });
   } finally {

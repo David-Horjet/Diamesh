@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { ArrowLeft01Icon, PlayIcon, SquareStop, CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
+import { ArrowLeft01Icon, PlayIcon, SquareStop, CheckmarkCircle02Icon, Edit02Icon, AlertCircleIcon } from "@hugeicons/core-free-icons";
 import Sidebar from "@/components/Sidebar";
 import AgentProgressStream from "@/components/AgentProgressStream";
 import ClinicalReportView from "@/components/ClinicalReport";
@@ -111,10 +111,19 @@ export default function CasePage() {
             </div>
             <div className="flex items-center gap-3">
               <UrgencyBadge status={clinicalCase.status} />
-              {!stream.isRunning && !stream.isComplete && clinicalCase.status !== "completed" && (
+              {!stream.isRunning && (
+                <Link href={`/cases/${id}/edit`} className="btn-secondary">
+                  <HugeiconsIcon icon={Edit02Icon} size={16} strokeWidth={1.8} />
+                  Edit
+                </Link>
+              )}
+              {/* A stale report must be re-runnable, otherwise flagging it as
+                  out of date leaves the user with no way to fix it. */}
+              {!stream.isRunning && !stream.isComplete &&
+                (clinicalCase.status !== "completed" || clinicalCase.reportStale) && (
                 <button onClick={() => { void stream.start(); }} className="btn-primary">
                   <HugeiconsIcon icon={PlayIcon} size={16} strokeWidth={1.8} />
-                  Run Analysis
+                  {clinicalCase.reportStale ? "Re-run Analysis" : "Run Analysis"}
                 </button>
               )}
               {stream.isRunning && (
@@ -125,6 +134,22 @@ export default function CasePage() {
               )}
             </div>
           </div>
+
+          {/* Report no longer matches the case data after an edit */}
+          {clinicalCase.reportStale && !stream.isRunning && !stream.isComplete && (
+            <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 px-4 py-3 mb-6 flex items-start gap-2">
+              <HugeiconsIcon
+                icon={AlertCircleIcon}
+                size={16}
+                strokeWidth={1.8}
+                className="text-yellow-600 dark:text-yellow-400 mt-0.5 shrink-0"
+              />
+              <p className="text-xs text-dark/60 dark:text-white/50">
+                <span className="font-medium text-dark/80 dark:text-white/70">This report is out of date. </span>
+                The case was edited after the analysis ran — re-run it to regenerate the report.
+              </p>
+            </div>
+          )}
 
           {/* Case summary strip */}
           <div className="card mb-6">

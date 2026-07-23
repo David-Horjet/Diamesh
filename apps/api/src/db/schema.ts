@@ -93,4 +93,23 @@ function runMigrations(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_runs_case        ON agent_runs(case_id);
     CREATE INDEX IF NOT EXISTS idx_reports_case     ON clinical_reports(case_id);
   `);
+
+  addColumnIfMissing(db, "cases", "updated_at", "TEXT");
+
+  // Existing rows predate the column; treat them as never edited so their
+  // reports aren't all retroactively flagged stale.
+  db.exec("UPDATE cases SET updated_at = created_at WHERE updated_at IS NULL");
+}
+
+// SQLite has no ADD COLUMN IF NOT EXISTS, so check the table first.
+function addColumnIfMissing(
+  db: Database.Database,
+  table: string,
+  column: string,
+  definition: string
+): void {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (columns.some((c) => c.name === column)) return;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  console.log(`[db] migrated: added ${table}.${column}`);
 }
