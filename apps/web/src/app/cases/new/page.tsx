@@ -84,7 +84,9 @@ export default function NewCasePage() {
         form,
         images.map(({ file, imageType }) => ({ file, imageType }))
       );
-      router.push(`/cases/${newCase.id}`);
+      // ?autorun=1 tells the case page this is a fresh "Create & Analyze"
+      // submission and it should start the pipeline immediately.
+      router.push(`/cases/${newCase.id}?autorun=1`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create case");
     } finally {
