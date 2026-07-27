@@ -18,3 +18,7 @@ apps/api/uploads/
 coverage/
 node_modules/
 *.tsbuildinfo
+
+# Raw CMS ICD-10-CM release (~22MB) — input to scripts/build-icd10.mjs.
+# The generated icd10-eye-codes.json is committed; the release itself is not.
+apps/api/src/rag/documents/Code Descriptions/

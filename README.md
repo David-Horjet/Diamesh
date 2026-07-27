@@ -106,18 +106,6 @@ Open [http://localhost:3000](http://localhost:3000)
 
 ---
 
-## One-Command Docker Setup
-
-```bash
-docker compose up --build
-```
-
-First run downloads models (~5GB). Subsequent starts are fast.
-
-Open [http://localhost:3000](http://localhost:3000)
-
----
-
 ## Architecture
 
 ```

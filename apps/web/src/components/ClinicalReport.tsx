@@ -1,6 +1,6 @@
 "use client";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Stethoscope02Icon, ClipboardIcon, TaskDone01Icon, ChatBotIcon, AlertDiamondIcon } from "@hugeicons/core-free-icons";
+import { Stethoscope02Icon, ClipboardIcon, TaskDone01Icon, ChatBotIcon, AlertDiamondIcon, CheckmarkCircle02Icon, AlertCircleIcon } from "@hugeicons/core-free-icons";
 import type { ClinicalReport } from "@diamesh/shared";
 
 export default function ClinicalReportView({ report }: { report: ClinicalReport }) {
@@ -27,7 +27,23 @@ export default function ClinicalReportView({ report }: { report: ClinicalReport 
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-medium">{d.condition}</span>
                   {d.icd10Code && (
-                    <span className="badge bg-black/5 dark:bg-white/10 text-dark/50 dark:text-white/40 font-mono">{d.icd10Code}</span>
+                    d.icd10Verified ? (
+                      <span
+                        title="Confirmed against the local ICD-10-CM database"
+                        className="badge bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono inline-flex items-center gap-1"
+                      >
+                        <HugeiconsIcon icon={CheckmarkCircle02Icon} size={12} strokeWidth={2} />
+                        {d.icd10Code}
+                      </span>
+                    ) : (
+                      <span
+                        title="Model-suggested code — NOT found in the local ICD-10-CM database. Verify before use."
+                        className="badge bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 font-mono inline-flex items-center gap-1"
+                      >
+                        <HugeiconsIcon icon={AlertCircleIcon} size={12} strokeWidth={2} />
+                        {d.icd10Code} · unverified
+                      </span>
+                    )
                   )}
                   <span className={`badge-${d.probability}`}>{d.probability}</span>
                 </div>

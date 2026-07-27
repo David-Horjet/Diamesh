@@ -1,7 +1,7 @@
 import { BaseAgent } from "./base.agent.js";
 import { getReasoningLarge } from "../models/pool.js";
 import { MODEL_DISPLAY } from "../models/constants.js";
-import { lookupICD10 } from "../tools/icd10.tool.js";
+import { lookupICD10, findByCode, MATCH_CONFIDENCE_THRESHOLD } from "../tools/icd10.tool.js";
 import type { AgentName, AgentProgressEvent, Differential } from "@diamesh/shared";
 import type { ReasoningResult } from "./reasoning.agent.js";
 
@@ -85,6 +85,7 @@ ${reasoningResult.clinicalAssessment}`,
         rank: 1,
         condition: "Assessment requires clinical review",
         icd10Code: null,
+        icd10Verified: false,
         probability: "high",
         rationale: reasoningResult.clinicalAssessment.slice(0, 200),
       }],
@@ -144,14 +145,28 @@ function repairTruncatedJson(raw: string): DifferentialResult | null {
   return { differentials, recommendedActions };
 }
 
-// Verify/correct each differential's ICD-10 code against the local code database.
-// If the model's code is missing or doesn't match a real code, look one up by condition name.
+// Verify each differential's ICD-10 code against the local ICD-10-CM database.
+//
+// Verification is deliberately conservative: a code is only marked verified
+// when it genuinely exists locally, either because the model's own code is
+// real or because the condition name matched an entry confidently. A weak
+// match leaves the model's code in place flagged unverified, because
+// substituting a plausible-but-wrong code is worse than admitting uncertainty
+// — the clinician can check a flagged code, but cannot spot a silent swap.
 function enrichWithIcd10(result: DifferentialResult): DifferentialResult {
   const differentials = result.differentials.map((d) => {
-    const matches = lookupICD10(d.condition);
-    // Prefer a verified local match; fall back to the model's code if none found
-    const verifiedCode = matches.length > 0 ? matches[0]!.code : (d.icd10Code ?? null);
-    return { ...d, icd10Code: verifiedCode };
+    // Strongest signal: the model's code exists verbatim in the database.
+    if (d.icd10Code) {
+      const exact = findByCode(d.icd10Code);
+      if (exact) return { ...d, icd10Code: exact.code, icd10Verified: true };
+    }
+
+    const best = lookupICD10(d.condition)[0];
+    if (best && best.score >= MATCH_CONFIDENCE_THRESHOLD) {
+      return { ...d, icd10Code: best.code, icd10Verified: true };
+    }
+
+    return { ...d, icd10Code: d.icd10Code ?? null, icd10Verified: false };
   });
   return { ...result, differentials };
 }

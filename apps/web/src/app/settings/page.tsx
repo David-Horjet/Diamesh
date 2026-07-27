@@ -19,6 +19,7 @@ import {
   UnlinkIcon,
   SquareStop,
 } from "@hugeicons/core-free-icons";
+import { QRCodeSVG } from "qrcode.react";
 import Sidebar from "@/components/Sidebar";
 import { getP2PStatus, startProvider, stopProvider, connectPeer, disconnectPeer, getAuditLogs } from "@/lib/api";
 import type { P2PStatus, AuditLogEntry } from "@diamesh/shared";
@@ -185,19 +186,36 @@ export default function SettingsPage() {
 
               {isProvider && p2pStatus?.publicKey && (
                 <div className="rounded-xl border border-black/[0.05] dark:border-white/10 p-4">
-                  <p className="text-xs font-medium mb-2">Your Provider Public Key</p>
-                  <div className="flex items-center gap-2">
-                    <code className="text-xs text-dark/70 dark:text-white/70 font-mono break-all flex-1">
-                      {p2pStatus.publicKey}
-                    </code>
-                    <button onClick={() => copyKey(p2pStatus.publicKey!)} className="btn-secondary text-xs shrink-0">
-                      <HugeiconsIcon icon={copied ? CheckmarkCircle02Icon : Copy01Icon} size={14} strokeWidth={1.8} />
-                      {copied ? "Copied!" : "Copy"}
-                    </button>
+                  <p className="text-xs font-medium mb-3">Pair a consumer device</p>
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    {/* QR — for phones/tablets with a camera */}
+                    <div className="shrink-0 self-center sm:self-start">
+                      <div className="bg-white rounded-xl p-3 border border-black/[0.06]">
+                        <QRCodeSVG value={p2pStatus.publicKey} size={128} level="M" marginSize={0} />
+                      </div>
+                      <p className="text-[11px] text-center text-dark/40 dark:text-white/30 mt-1.5">Scan to pair</p>
+                    </div>
+
+                    {/* Copyable key — for laptop-to-laptop (no camera) */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] uppercase tracking-wide text-dark/40 dark:text-white/30 mb-1.5">
+                        Or copy the public key
+                      </p>
+                      <div className="flex items-start gap-2">
+                        <code className="text-xs text-dark/70 dark:text-white/70 font-mono break-all flex-1">
+                          {p2pStatus.publicKey}
+                        </code>
+                        <button onClick={() => copyKey(p2pStatus.publicKey!)} className="btn-secondary text-xs shrink-0">
+                          <HugeiconsIcon icon={copied ? CheckmarkCircle02Icon : Copy01Icon} size={14} strokeWidth={1.8} />
+                          {copied ? "Copied!" : "Copy"}
+                        </button>
+                      </div>
+                      <p className="text-xs text-dark/40 dark:text-white/30 mt-2">
+                        On the other device, open <span className="font-medium text-dark/60 dark:text-white/50">Consumer Mode</span> and
+                        scan this QR or paste the key to delegate inference to this device.
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-xs text-dark/40 dark:text-white/30 mt-2">
-                    Share this key with other clinics to allow them to delegate inference to your device
-                  </p>
                 </div>
               )}
 

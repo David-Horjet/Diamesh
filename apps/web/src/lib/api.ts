@@ -3,6 +3,7 @@ import type {
   ClinicalReport,
   AgentRun,
   CreateCaseInput,
+  UpdateCaseInput,
   HealthResponse,
   P2PStatus,
   AuditLogEntry,
@@ -65,6 +66,37 @@ export async function createCase(
   if (!json.success) throw new Error(json.error);
   return json.data;
 }
+
+/**
+ * Patch a case's fields and optionally attach more images. Fields omitted from
+ * `input` are left untouched server-side.
+ */
+export async function updateCase(
+  id: string,
+  input: UpdateCaseInput,
+  newImages?: { file: File; imageType: string }[]
+): Promise<ClinicalCase> {
+  const form = new FormData();
+
+  (Object.entries(input) as [string, string | undefined][]).forEach(([k, v]) => {
+    if (v !== undefined) form.append(k, v);
+  });
+
+  if (newImages) {
+    newImages.forEach(({ file, imageType }) => {
+      form.append("images", file);
+      form.append(`imageType_images`, imageType);
+    });
+  }
+
+  const res = await fetch(`${BASE}/api/cases/${id}`, { method: "PATCH", body: form });
+  const json = (await res.json()) as ApiResult<ClinicalCase>;
+  if (!json.success) throw new Error(json.error);
+  return json.data;
+}
+
+export const deleteCaseImage = (caseId: string, imageId: string) =>
+  req<ClinicalCase>(`/api/cases/${caseId}/images/${imageId}`, { method: "DELETE" });
 
 // ─── P2P ─────────────────────────────────────────────────────────────────────
 export const getP2PStatus = () => req<P2PStatus>("/api/p2p/status");

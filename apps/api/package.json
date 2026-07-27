@@ -11,7 +11,8 @@
     "db:migrate": "tsx --env-file=.env src/db/migrate.ts",
     "rag:ingest": "tsx --env-file=.env src/rag/ingest.ts",
     "db:seed": "tsx --env-file=.env src/db/seed.ts",
-    "models:download": "bash scripts/download-models.sh"
+    "models:download": "bash scripts/download-models.sh",
+    "icd10:build": "node scripts/build-icd10.mjs"
   },
   "dependencies": {
     "@diamesh/shared": "*",
